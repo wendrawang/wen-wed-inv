@@ -107,7 +107,10 @@ class DetailCardInfoScreenViewModel: ScreenContentViewModel {
     /// view update — dua sebab terpisah yang sama-sama menghasilkan layar
     /// kosong secara intermiten.
     private func setupView() {
-        let bankCard = useCase.bankCard
+        // Selalu `repository`, tidak pernah `input`. `input` adalah apa yang
+        // diminta; `repository` adalah apa yang sudah terselesaikan oleh
+        // `loadData()`. Konvensi ini berlaku sama di seluruh UseCase.
+        let bankCard = useCase.repository.bankCard
 
         cardNumberViewModel = makeCardNumberViewModel(bankCard)
         cardExpiredViewModel = makeCardExpiredViewModel(bankCard)

@@ -32,18 +32,6 @@ class DetailCardInfoScreenUseCase: UseCase, UseCaseProtocol {
 
 extension DetailCardInfoScreenUseCase {
 
-    /// Satu-satunya sumber baca untuk ViewModel.
-    ///
-    /// `input` adalah apa yang diminta, `repository` adalah apa yang sudah
-    /// terselesaikan. Keduanya hanya bertemu di dalam `loadData()`. ViewModel
-    /// yang membaca `input` akan tampak benar padahal melewati satu langkah,
-    /// dan ViewModel yang membaca `repository` sebelum `loadData()` jalan akan
-    /// menampilkan field kosong. Akses tunggal ini membuat pilihannya tidak
-    /// ambigu dan salahnya sulit dilakukan tanpa sengaja.
-    var bankCard: BankCard {
-        repository.bankCard
-    }
-
     class Input {
         var bankCard = BankCard(.unspecified)
     }

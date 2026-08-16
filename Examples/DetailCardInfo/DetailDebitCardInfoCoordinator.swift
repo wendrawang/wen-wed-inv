@@ -64,10 +64,16 @@ struct DetailDebitCardInfoCoordinator: View {
     ) -> DetailCardInfoScreenViewModel {
         let viewModel = DetailCardInfoScreenViewModel()
 
+        // Menangkap Binding-nya saja, bukan seluruh struct coordinator.
+        // Menulis `action: dismissScreenHandler` akan menyalin `self` beserta
+        // semua Binding dan State-nya ke dalam ViewModel, dan salinan itu
+        // adalah snapshot dari render saat closure dibuat.
+        let sourceCoordinatorName = $sourceCoordinatorName
+
         viewModel.analytic = analytic(for: bankCard)
         viewModel.ignoreSafeAreaNavigationBar()
         viewModel.setupDismissScreenButton(
-            action: makeDismissScreenHandler(),
+            action: { sourceCoordinatorName.wrappedValue = nil },
             iconNamed: R.image.iconSmallChevronLeft.name,
             iconColor: .white
         )
@@ -85,22 +91,6 @@ struct DetailDebitCardInfoCoordinator: View {
         viewModel.loadData()
 
         return viewModel
-    }
-
-    // MARK: - Aksi
-
-    /// Menangkap Binding sebagai nilai, bukan menangkap struct View.
-    ///
-    /// Menulis `action: dismissScreenHandler` akan menangkap salinan seluruh
-    /// coordinator beserta semua `@Binding` dan `@State`-nya ke dalam
-    /// ViewModel, dan salinan itu adalah snapshot dari render saat closure
-    /// dibuat.
-    private func makeDismissScreenHandler() -> () -> Void {
-        let source = $sourceCoordinatorName
-
-        return {
-            source.wrappedValue = nil
-        }
     }
 
     private func analytic(for bankCard: BankCard) -> AnalyticEvent {

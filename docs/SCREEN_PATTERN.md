@@ -159,16 +159,17 @@ viewModel.setUseCase(useCase)
 viewModel.loadData()   // repository terisi sebelum view pertama dirender
 ```
 
-### 4. UseCase punya satu titik baca
+### 4. ViewModel selalu membaca `repository`, tidak pernah `input`
 
 `input` adalah apa yang diminta; `repository` adalah apa yang sudah
-terselesaikan. ViewModel tidak boleh memilih sendiri di antara keduanya.
+terselesaikan oleh `loadData()`. ViewModel yang membaca `input` akan tampak
+benar padahal melewati satu langkah.
 
-```swift
-extension SomeUseCase {
-    var bankCard: BankCard { repository.bankCard }
-}
-```
+Ini konvensi, bukan kode. Menambahkan accessor khusus di tiap UseCase —
+misalnya `var bankCard: BankCard { repository.bankCard }` — justru merusak
+bentuk baku `input`/`repository`/`callback` dan tetap tidak mencegah siapa pun
+membaca `input`. Aturan yang berlaku seragam di semua UseCase lebih berguna
+daripada penjaga buatan di satu-dua tempat.
 
 ### 5. Satu gaya pembaruan sub-ViewModel
 
