@@ -13,11 +13,32 @@ class DetailCardInfoScreenViewModel: ScreenContentViewModel {
     private(set) var useCase = DetailCardInfoScreenUseCase()
 
     /// Membuat `DateFormatter` termasuk operasi paling mahal di Foundation,
-    /// dan pengisian tampilan bisa berjalan berkali-kali. Satu instance saja,
-    /// dipakai ulang.
+    /// dan pengisian tampilan bisa berjalan berkali-kali.
+    ///
+    /// `static` dipilih karena isinya konstan — tidak ada bagian formatter ini
+    /// yang bergantung pada instance ViewModel. Property instance biasa
+    /// sebenarnya sudah cukup untuk soal biaya; `static` sekadar menghindari
+    /// duplikasi yang tidak ada gunanya.
+    ///
+    /// Syaratnya dua, dan keduanya terpenuhi di sini. Formatter ini tidak
+    /// boleh diubah setelah dikonfigurasi — `DateFormatter` aman dipakai
+    /// lintas thread selama hanya dibaca. Dan format ini harus format tetap,
+    /// bukan teks yang mengikuti bahasa pengguna, karena objek yang hidup
+    /// seumur aplikasi akan mengunci locale-nya pada saat pertama dibuat dan
+    /// tidak ikut berubah kalau bahasa diganti dari dalam app.
+    ///
+    /// Untuk format yang harus mengikuti bahasa pengguna, pakai property
+    /// instance biasa supaya ia dibangun ulang setiap layar dibuka.
     private static let monthAndYearFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = DateFormats.monthAndYear
+
+        // Mengunci ke locale POSIX supaya format tetap ini tidak terpengaruh
+        // setelan pengguna. Tanpa ini, perangkat dengan kalender non-Gregorian
+        // akan menampilkan tahun yang berbeda untuk masa berlaku kartu yang
+        // sama.
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+
         return formatter
     }()
 

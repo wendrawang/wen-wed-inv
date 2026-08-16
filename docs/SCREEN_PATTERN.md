@@ -213,12 +213,46 @@ sebuah fetch berjalan akan membuat hasil fetch itu dibuang diam-diam.
 
 ### 8. Formatter di-cache
 
-`DateFormatter()` termasuk operasi paling mahal di Foundation dan pengisian
-tampilan bisa berjalan berkali-kali.
+`DateFormatter()` termasuk operasi paling mahal di Foundation. Yang salah pada
+kode lama bukan "bukan `static`", melainkan formatter dibuat sebagai variabel
+lokal di dalam fungsi pengisian tampilan, sehingga lahir baru setiap fungsi itu
+jalan. Ada tiga tingkat:
+
+| Bentuk | Berapa kali dibuat |
+|---|---|
+| `let` lokal di dalam fungsi | setiap pemanggilan |
+| `private let` property instance | sekali per ViewModel |
+| `private static let` | sekali seumur aplikasi |
+
+Naik ke property instance **sudah cukup** untuk soal biaya. Pilih `static`
+hanya kalau dua syarat ini terpenuhi:
+
+- Formatter tidak pernah diubah setelah dikonfigurasi. `DateFormatter` aman
+  lintas thread selama hanya dibaca; menambah `formatter.dateFormat = ...` di
+  titik pemakaian mengubahnya jadi data race lintas layar.
+- Formatnya tetap, bukan teks yang mengikuti bahasa pengguna. Objek yang hidup
+  seumur aplikasi mengunci `Locale.current` pada saat dibuat, jadi ia tidak
+  ikut berubah kalau bahasa diganti dari dalam app.
+
+Untuk format tetap, kunci locale-nya supaya setelan pengguna tidak mengubah
+keluaran:
 
 ```swift
-private static let monthAndYearFormatter: DateFormatter = { ... }()
+private static let monthAndYearFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateFormat = DateFormats.monthAndYear
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    return formatter
+}()
 ```
+
+Untuk format yang harus mengikuti bahasa pengguna, pakai property instance
+supaya ia dibangun ulang setiap layar dibuka.
+
+> Periksa juga helper yang menyembunyikan formatter di dalamnya. Ekstensi
+> seperti `String.convertToDate(format:)` biasanya membuat `DateFormatter`
+> baru pada setiap pemanggilan, dan biaya itu tidak terlihat dari titik
+> pemakaian.
 
 ### 9. `@ObservedObject` tanpa nilai default
 
