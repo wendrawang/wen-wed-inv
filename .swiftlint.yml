@@ -70,16 +70,16 @@ custom_rules:
       generic, atau Group.
     severity: warning
 
-  formatter_in_view_body:
-    name: "Formatter dibuat di jalur render"
-    regex: '(DateFormatter|NumberFormatter|ISO8601DateFormatter)\s*\(\s*\)'
-    message: >-
-      Membuat formatter sangat mahal dan body bisa dievaluasi puluhan kali per
-      detik. Simpan sebagai static let, atau siapkan string jadi di ViewModel.
-    severity: warning
-
-  # Catatan: aturan untuk ".sink tanpa [weak self]" sengaja tidak dipasang.
-  # Regex satu baris tidak bisa membedakan sink yang menyebut self dari yang
-  # tidak, dan false positive yang banyak membuat tim mulai mengabaikan lint
-  # secara keseluruhan. Kasus itu ditangkap oleh trackForMemoryLeaks di test,
-  # yang menilai perilaku sesungguhnya, bukan bentuk teksnya.
+  # Dua aturan sengaja TIDAK dipasang, dengan alasan yang sama: regex satu
+  # baris tidak bisa membedakan kasus buruk dari kasus baik, dan aturan yang
+  # sering salah tuduh membuat tim mulai mengabaikan lint secara keseluruhan.
+  # Apalagi dengan --strict, di mana warning menahan PR.
+  #
+  # 1. ".sink tanpa [weak self]" — tidak bisa membedakan sink yang menyebut
+  #    self dari yang tidak. Ditangkap oleh trackForMemoryLeaks di test, yang
+  #    menilai perilaku sesungguhnya, bukan bentuk teksnya.
+  #
+  # 2. "DateFormatter() di jalur render" — bentuk yang justru dianjurkan
+  #    (static let dengan closure inisialisasi) mengandung teks yang sama
+  #    persis dengan bentuk yang dilarang. Ada di checklist PR sebagai
+  #    gantinya.

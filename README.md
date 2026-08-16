@@ -11,18 +11,33 @@ bawah diambil.
 ## Isi
 
 ```
-Sources/Debug/LifecycleProbe.swift      probe opt-in per class
-Sources/Debug/LifecycleTracker.swift    counter + checkpoint
+Sources/Debug/LifecycleProbe.swift         probe opt-in per class
+Sources/Debug/LifecycleTracker.swift       counter + checkpoint
+Sources/Navigation/LazyNavigationLink.swift  destination yang ditunda
 Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
-.swiftlint.yml                          aturan lifetime & performa render
-docs/LIFECYCLE_RULES.md                 aturan tim
-.github/pull_request_template.md        checklist PR
-.github/workflows/lint.yml              penegakan di CI
+Examples/DetailCardInfo/                   layar rujukan, sudah diperbaiki
+docs/LIFECYCLE_RULES.md                    aturan lifecycle
+docs/SCREEN_PATTERN.md                     pola layar + checklist migrasi
+.swiftlint.yml                             aturan lifetime & performa render
+.github/pull_request_template.md           checklist PR
+.github/workflows/lint.yml                 penegakan di CI
 ```
+
+`Examples/` adalah rujukan, bukan kode yang bisa dikompilasi berdiri sendiri —
+ia menyebut tipe milik aplikasi (`Screen`, `UseCase`, `ScreenContentViewModel`,
+`R.*`) yang tidak ada di repo ini, dan test-nya memakai `BankCard.stubbed()`
+yang perlu Anda sediakan. Folder ini juga tidak ikut di-lint. Salin isinya ke
+proyek, jangan di-build dari sini.
 
 ## Cara memakai
 
-Baca [docs/LIFECYCLE_RULES.md](docs/LIFECYCLE_RULES.md). Ringkasnya, ada tiga
+Untuk menulis atau memigrasi sebuah layar, baca
+[docs/SCREEN_PATTERN.md](docs/SCREEN_PATTERN.md) — sembilan aturan beserta
+checklist migrasi, diturunkan dari satu bug nyata di layar Detail Debit Card
+Info (CVV dan nomor kartu kadang kosong).
+
+Untuk aturan lifecycle-nya, baca
+[docs/LIFECYCLE_RULES.md](docs/LIFECYCLE_RULES.md). Ringkasnya, ada tiga
 lapis dan hanya lapis pertama yang wajib untuk semua perubahan:
 
 1. **Test yang gagal** — `trackForMemoryLeaks` di setiap test yang membuat
