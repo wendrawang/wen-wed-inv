@@ -1,0 +1,85 @@
+included:
+  - Sources
+  - Tests
+
+excluded:
+  - Carthage
+  - Pods
+  - .build
+  - "**/*.generated.swift"
+  - "**/R.generated.swift"
+
+# Aturan bawaan yang relevan untuk lifetime dan performa render.
+opt_in_rules:
+  - unowned_variable_capture
+  - weak_delegate
+  - empty_count
+  - first_where
+  - last_where
+  - contains_over_filter_count
+  - contains_over_first_not_nil
+  - flatmap_over_map_reduce
+  - redundant_nil_coalescing
+  - static_operator
+  - toggle_bool
+
+disabled_rules:
+  - todo
+  - line_length
+
+identifier_name:
+  min_length: 2
+
+custom_rules:
+
+  # --- Lifetime -----------------------------------------------------------
+
+  combine_assign_to_on_self:
+    name: "assign(to:on:) menahan self"
+    regex: 'assign\(to:\s*\\\.[^,)]+,\s*on:\s*self\s*\)'
+    message: >-
+      assign(to:\.x, on: self) membuat retain cycle: subscription menahan self,
+      self menahan cancellables. Varian aman assign(to: &$x) baru ada di
+      iOS 14. Pakai sink { [weak self] in self?.x = $0 } sebagai gantinya.
+    severity: error
+
+  timer_scheduled_timer:
+    name: "Timer.scheduledTimer menahan target"
+    regex: 'Timer\.scheduledTimer'
+    message: >-
+      Timer menahan target/closure-nya sampai invalidate() dipanggil. Simpan
+      referensinya, panggil invalidate() di deinit, dan pakai [weak self].
+    severity: warning
+
+  notification_observer_without_token:
+    name: "Observer NotificationCenter tanpa token"
+    regex: 'NotificationCenter\.default\.addObserver\(forName:'
+    message: >-
+      Varian blok mengembalikan token yang wajib disimpan dan di-remove saat
+      deinit. Kalau tidak, observer hidup selama aplikasi berjalan.
+    severity: warning
+
+  # --- Performa render ----------------------------------------------------
+
+  any_view_usage:
+    name: "AnyView menghapus structural identity"
+    regex: 'AnyView\s*\('
+    message: >-
+      AnyView menghapus structural identity sehingga SwiftUI kehilangan jalur
+      diff murahnya dan membandingkan ulang seluruh subtree. Pakai @ViewBuilder,
+      generic, atau Group.
+    severity: warning
+
+  formatter_in_view_body:
+    name: "Formatter dibuat di jalur render"
+    regex: '(DateFormatter|NumberFormatter|ISO8601DateFormatter)\s*\(\s*\)'
+    message: >-
+      Membuat formatter sangat mahal dan body bisa dievaluasi puluhan kali per
+      detik. Simpan sebagai static let, atau siapkan string jadi di ViewModel.
+    severity: warning
+
+  # Catatan: aturan untuk ".sink tanpa [weak self]" sengaja tidak dipasang.
+  # Regex satu baris tidak bisa membedakan sink yang menyebut self dari yang
+  # tidak, dan false positive yang banyak membuat tim mulai mengabaikan lint
+  # secara keseluruhan. Kasus itu ditangkap oleh trackForMemoryLeaks di test,
+  # yang menilai perilaku sesungguhnya, bukan bentuk teksnya.
