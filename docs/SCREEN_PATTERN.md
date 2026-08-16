@@ -43,6 +43,75 @@ kenapa hasilnya berbeda antar perangkat.
 
 ---
 
+## Kenapa `setupView()` dulu dipanggil dari coordinator
+
+Panggilan itu bukan kelalaian. Ia tambalan untuk gejala nyata: **swipe back
+yang dibatalkan membuat layar jadi blank.**
+
+Mekanismenya begini. Saat gestur swipe dimulai lalu dilepas tanpa jadi,
+`selectionCoordinatorName` sempat berubah dan kembali lagi, dan setiap
+perubahan itu membuat body induk dievaluasi ulang. Karena destination-nya
+tidak lazy, `createViewModel()` ikut jalan lagi — dan pada saat selection
+sedang bukan `named`, cabang ini yang dieksekusi:
+
+```swift
+if selectionCoordinatorName != DetailDebitCardInfoCoordinator.named {
+    viewModel.flushData()
+    return DetailCardInfoScreenViewModel()   // ← ViewModel kosong ke layar
+}
+```
+
+Layar yang masih ter-push menerima ViewModel yang belum dikonfigurasi sama
+sekali. Itulah blank screen-nya. Lalu selection kembali ke `named`, body jalan
+lagi, dan `setupView()` pada cabang satunya mengisi ulang layar. Jadi
+`setupView()` di `createViewModel()` adalah **jalur pemulihan dari blank yang
+disebabkan fungsi itu sendiri**.
+
+Niat di balik cabang itu benar: jangan bangun ViewModel sungguhan saat link
+belum aktif. Yang salah cuma caranya — mengembalikan objek kosong tetap
+membangun sesuatu, dan objek kosong itu tetap sampai ke layar.
+
+Ada juga efek samping yang jarang disadari. `viewModel.flushData()` di cabang
+yang sama memanggil `useCase.flushData()`, yang menjalankan
+`repository = Repository()`. Kalau flush itu mengenai UseCase yang sungguhan,
+repository jadi kosong, dan `setupView()` di cabang sebelahnya membacanya
+beberapa milidetik kemudian. Urutan flush-lalu-setup ini tercetus tepat pada
+interaksi yang sama — swipe back yang dibatalkan — jadi besar kemungkinan
+blank screen dan field kosong yang intermiten itu adalah satu bug yang sama,
+hanya berbeda seberapa cepat pemulihannya datang.
+
+### Kenapa masalah ini hilang dengan sendirinya
+
+`LazyNavigationLink` menghapus penyebabnya, bukan menambal gejalanya, sehingga
+tambalannya tidak lagi dibutuhkan.
+
+Builder hanya dipanggil sekali dan hasilnya disimpan. Saat body coordinator
+dievaluasi ulang — karena swipe yang dibatalkan atau sebab lain —
+`LazyNavigationDestination` yang baru dibuang oleh SwiftUI karena `@State`-nya
+sudah terpasang, dan layar yang ter-push tetap memakai ViewModel yang sama
+beserta datanya. Tidak ada evaluasi ulang, tidak ada objek kosong, tidak ada
+blank.
+
+Yang menjamin ini bukan sekadar hilangnya cabang `if`, tapi satu invarian:
+**di kode yang baru tidak ada satu pun jalur yang menghasilkan ViewModel tanpa
+konfigurasi.** `createDestination()` selalu membangun UseCase, ViewModel, dan
+memanggil `loadData()` sebagai satu kesatuan. Kalau layar dapat ViewModel, ia
+pasti ViewModel yang lengkap.
+
+Invarian keduanya menutup sisi yang satu lagi: `setupView()` `private` dan
+hanya bisa dipicu `onFetchSucceed`, sedangkan `onFetchSucceed` hanya menyala
+dari dalam `loadData()` setelah repository terisi. Jadi `setupView()`
+**mustahil** membaca repository kosong, apa pun yang terjadi pada `flushData()`
+di siklus layar.
+
+> Saat memigrasi halaman lain, cari tambalan sejenis. Cabang yang
+> mengembalikan ViewModel kosong, pemanggilan `setupView()` atau `flushData()`
+> dari coordinator, dan pemeriksaan `selection != named` di dalam pembangunan
+> ViewModel semuanya adalah tanda masalah yang sama. Hapus tambalannya bersama
+> penyebabnya, jangan hanya salah satu.
+
+---
+
 ## Aturan
 
 ### 1. Coordinator tidak menyimpan ViewModel atau UseCase
@@ -162,6 +231,8 @@ Jadikan wajib, supaya kesalahannya tertangkap saat kompilasi.
 ## Checklist saat memigrasi layar lain
 
 - [ ] Tidak ada stored property ViewModel/UseCase di struct coordinator
+- [ ] Tidak ada cabang yang mengembalikan ViewModel kosong saat link belum aktif
+- [ ] Coordinator tidak memanggil `flushData()` maupun `setupView()`
 - [ ] Semua objek dibangun di dalam builder `LazyNavigationLink`
 - [ ] `setupView()` sudah `private`, dan coordinator memanggil `loadData()`
 - [ ] ViewModel membaca lewat satu akses tunggal di UseCase
