@@ -17,6 +17,7 @@ Sources/Navigation/LazyNavigationLink.swift  destination yang ditunda
 Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
 Examples/DetailCardInfo/                   layar rujukan, sudah diperbaiki
 Examples/Base/UseCase.swift                penjagaan base yang berlaku global
+docs/STATUS.md                             status semua temuan
 docs/LIFECYCLE_RULES.md                    aturan lifecycle
 docs/ACCESS_MATRIX.md                      matriks akses antar lapisan
 docs/SCREEN_PATTERN.md                     pola layar + checklist migrasi
@@ -78,6 +79,13 @@ dalam `#if DEBUG`), class-nya belum dipasangi `LifecycleProbe`, atau
 `loggingPolicy` diturunkan di suatu tempat. Log memakai `os_log` level `.info`
 dengan kategori `ObjectLifecycle` — di konsol Xcode langsung terlihat, di
 Console.app saring dengan subsystem bundle identifier aplikasi.
+
+## Status temuan
+
+Penelusuran ini menghasilkan belasan temuan dengan tingkat kepastian berbeda.
+[docs/STATUS.md](docs/STATUS.md) memisahkan mana yang sudah terbukti, mana yang
+masih dugaan dan butuh pengukuran, dan mana yang sudah dicoret — baca itu dulu
+sebelum mengerjakan apa pun dari dokumen temuan.
 
 ## Prinsip yang mendasarinya
 
