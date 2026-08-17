@@ -25,11 +25,12 @@ class UseCase {
         if state == .inactive {
             assertionFailure(
                 """
-                requestLoadData() dipanggil pada \(type(of: self)) yang masih \
-                .inactive. renewIdentifier() belum pernah dipanggil, jadi \
-                pemuatan data dilewati diam-diam dan layar akan tetap kosong. \
-                Pastikan coordinator memanggil renewIdentifier() saat UseCase \
-                dibuat, dan ViewModel menerima UseCase itu lewat setUseCase().
+                requestLoadData() was called on \(type(of: self)) while it is \
+                still .inactive. renewIdentifier() has never been called, so \
+                the data load is skipped silently and the screen stays empty. \
+                Make sure the coordinator calls renewIdentifier() when it \
+                creates the use case, and hands it to the view model through \
+                setUseCase().
                 """
             )
             return
@@ -45,8 +46,8 @@ class UseCase {
         if state == .inactive {
             assertionFailure(
                 """
-                requestLoadData(pageNumber:searchKeyword:) dipanggil pada \
-                \(type(of: self)) yang masih .inactive.
+                requestLoadData(pageNumber:searchKeyword:) was called on \
+                \(type(of: self)) while it is still .inactive.
                 """
             )
             return

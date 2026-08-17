@@ -86,9 +86,21 @@ print(LifecycleTracker.shared.snapshotDescription())
 Sambungkan ini ke debug menu supaya tidak perlu breakpoint.
 
 **Lulus** berarti tidak ada tipe berumur layar yang tersisa hidup setelah
-kembali ke root. Nilai `puncak` di ringkasan juga memberi tahu apakah memori
+kembali ke root. Nilai `peak` di ringkasan juga memberi tahu apakah memori
 tumbuh mengikuti kedalaman navigasi — kalau puncaknya sama dengan jumlah layar
 yang dilewati, objek memang tertahan sepanjang jalur.
+
+Keluarannya kira-kira begini:
+
+```
+[LIFECYCLE] Still alive:
+  2x DetailCardInfoScreenUseCase (peak 3)
+  1x DetailCardInfoScreenViewModel (peak 3)
+```
+
+Seluruh pesan runtime — log, assertion, dan pesan kegagalan test — memakai
+bahasa Inggris supaya bisa ditempel apa adanya ke issue, PR, atau percakapan
+dengan pihak lain. Komentar dan dokumen tetap bahasa Indonesia.
 
 Kalau ada yang tersisa, `liveInstanceIdentifiers(of:)` memberi alamat objeknya
 dalam hex, dan alamat itu bisa dicari langsung di Memory Graph Debugger untuk

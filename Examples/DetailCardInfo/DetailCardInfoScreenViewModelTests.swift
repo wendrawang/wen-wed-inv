@@ -66,11 +66,11 @@ final class DetailCardInfoScreenViewModelTests: XCTestCase {
 
         XCTAssertFalse(
             sut.cardNumberViewModel.subtitles.isEmpty,
-            "Nomor kartu masih kosong setelah loadData()."
+            "Card number is still empty after loadData()."
         )
         XCTAssertFalse(
             sut.cvvViewModel.subtitle.isEmpty,
-            "CVV masih kosong setelah loadData()."
+            "CVV is still empty after loadData()."
         )
 
         trackForMemoryLeaks([sut, useCase])

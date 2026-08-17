@@ -66,9 +66,9 @@ final class LifecycleProbe {
         assert(
             !resolvedName.hasSuffix(".Type"),
             """
-            LifecycleProbe(_:) menerima metatype, bukan objek. \
-            Gunakan LifecycleProbe(type: \(resolvedName)) \
-            atau berikan instance-nya.
+            LifecycleProbe(_:) received a metatype, not an object. \
+            Use LifecycleProbe(type: \(resolvedName)) instead, \
+            or pass the instance itself.
             """
         )
 
