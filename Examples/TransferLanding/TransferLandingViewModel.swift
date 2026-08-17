@@ -25,7 +25,12 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
 
     /// Penjagaan nilai di `willSet`. Di titik itu nilai lama masih tersedia,
     /// jadi penerbitan hanya terjadi kalau kategorinya benar-benar berubah.
-    private(set) var selectedTransferCategory: TransferCategory = .unspecified {
+    ///
+    /// Akses tetap `var`, tidak dikunci `private(set)`. Property ini mungkin
+    /// dipakai `TransactionalProtocol` atau ditulis dari luar di tempat yang
+    /// belum saya lihat, dan penjagaan nilainya tetap bekerja tanpa penguncian
+    /// itu. Yang dituju perbaikan ini adalah penerbitannya, bukan akses tulis.
+    var selectedTransferCategory: TransferCategory = .unspecified {
         willSet {
             guard newValue != selectedTransferCategory else { return }
             objectWillChange.send()

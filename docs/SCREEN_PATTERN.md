@@ -347,6 +347,25 @@ private static let monthAndYearFormatter: DateFormatter = {
 Untuk format yang harus mengikuti bahasa pengguna, pakai property instance
 supaya ia dibangun ulang setiap layar dibuka.
 
+### 9b. Jangan mengubah `var x = default` jadi `let` saat merapikan
+
+Ini jebakan yang tidak terlihat dari file yang sedang Anda sunting, karena
+akibatnya muncul di file lain.
+
+Pada struct `View`, bentuk deklarasi menentukan memberwise init:
+
+| Deklarasi | Di memberwise init |
+|---|---|
+| `var x: T = default` | ada, dengan nilai default — pemanggil boleh melewatinya |
+| `let x: T` | ada, **wajib** — setiap pemanggil harus mengisinya |
+| `let x: T = default` | **tidak ada sama sekali** — pemanggil yang mengisinya gagal kompilasi |
+
+Jadi merapikan `var predefineTransferCategory: TransferCategory = .unspecified`
+menjadi `let` akan meledakkan setiap call site sekaligus, dan mengembalikan
+default-nya sambil tetap `let` justru meledakkan call site yang berlawanan.
+
+Aturannya: **`let` hanya untuk property yang memang wajib diisi pemanggil.**
+Kalau ada nilai default, biarkan `var`.
 ### 10. UseCase tidak pernah menyentuh `callback` secara langsung
 
 Helper di `UseCaseProtocol` — `startFetchLoading()`, `stopLoading()`,

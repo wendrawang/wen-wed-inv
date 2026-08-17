@@ -20,7 +20,15 @@ struct TransferLandingCoordinator: View {
 
     @State private var destinationCoordinatorName: String?
 
-    let predefineTransferCategory: TransferCategory
+    /// Tetap `var` dengan nilai default, persis seperti versi lama.
+    ///
+    /// Bentuk `var x = default` memberi parameter berdefault di memberwise
+    /// init, sehingga pemanggil boleh tidak menyebutkannya. Menggantinya jadi
+    /// `let x: T` tanpa default membuat parameternya **wajib** di setiap call
+    /// site; menggantinya jadi `let x: T = default` malah menghapusnya sama
+    /// sekali dari memberwise init, sehingga pemanggil yang memang mengisinya
+    /// ikut gagal kompilasi.
+    var predefineTransferCategory: TransferCategory = .unspecified
 
     var body: some View {
         LazyNavigationLink(
