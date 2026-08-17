@@ -197,19 +197,30 @@ struct TransferLandingCoordinator: View {
         return DefaultValues.emptyAnyView
     }
 
-    /// Tujuan kembali untuk seluruh coordinator anak.
+    /// Nilai yang dioper ke parameter `sourceCoordinatorName` milik coordinator
+    /// anak.
     ///
-    /// Membersihkan **kedua** penyimpan tujuan, supaya tautannya keluar dari
-    /// pohon dan tahap berikutnya kembali mulai dari keadaan belum terpilih.
-    private var backTarget: Binding<String?> {
-        if sourceCoordinatorName != nil {
-            return $sourceCoordinatorName
-        }
-
-        return $selectionCoordinatorName.didSet { _ in
-            activeDestinationCoordinatorName = nil
-            pendingDestinationCoordinatorName = nil
-        }
+    /// Namanya sengaja menyebut **posisinya**, bukan kegunaannya. Ekspresi ini
+    /// diambil apa adanya dari versi lama, yang menuliskannya sembilan kali
+    /// dengan isi identik; apa yang dilakukan setiap anak dengan nilai itu
+    /// berbeda-beda dan bukan urusan file ini.
+    ///
+    /// Mekanismenya: kalau coordinator ini **tidak** menerima
+    /// `sourceCoordinatorName` dari induknya, berarti ia sendiri titik awal
+    /// rangkaian ini, jadi yang dioper ke bawah adalah selection-nya sendiri.
+    /// Kalau ia menerima, nilai itu diteruskan apa adanya sehingga seluruh
+    /// rangkaian menunjuk ke titik awal yang sama.
+    ///
+    /// Satu-satunya penyesuaian dari versi lama ada di badan `didSet`: ia kini
+    /// membersihkan **kedua** penyimpan tujuan, karena tujuannya sekarang
+    /// disimpan dalam dua tahap.
+    private var childSourceCoordinatorName: Binding<String?> {
+        sourceCoordinatorName == nil
+            ? $selectionCoordinatorName.didSet { _ in
+                activeDestinationCoordinatorName = nil
+                pendingDestinationCoordinatorName = nil
+            }
+            : $sourceCoordinatorName
     }
 
     private func navigationLinks(
@@ -219,7 +230,7 @@ struct TransferLandingCoordinator: View {
             AnyView(
                 TransferTransactionAmountCoordinator(
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
-                    sourceCoordinatorName: backTarget,
+                    sourceCoordinatorName: childSourceCoordinatorName,
                     transferCart: $transferCart,
                     recipientAccount: useCase.binding(\.output.recipientAccount),
                     recipientProfile: .constant(TransactionActorProfile()),
@@ -239,7 +250,7 @@ struct TransferLandingCoordinator: View {
             AnyView(
                 TransferDebitAccountSelectionCoordinator(
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
-                    sourceCoordinatorName: backTarget,
+                    sourceCoordinatorName: childSourceCoordinatorName,
                     transferCart: $transferCart,
                     recipientAccount: useCase.binding(\.output.recipientAccount),
                     recipientProfile: .constant(TransactionActorProfile()),
@@ -260,7 +271,7 @@ struct TransferLandingCoordinator: View {
             AnyView(
                 DomesticTransferNewRecipientCoordinator(
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
-                    sourceCoordinatorName: backTarget,
+                    sourceCoordinatorName: childSourceCoordinatorName,
                     transferCart: $transferCart
                 )
             )
@@ -270,7 +281,7 @@ struct TransferLandingCoordinator: View {
             AnyView(
                 ForeignTransferNewRecipientCoordinator(
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
-                    sourceCoordinatorName: backTarget,
+                    sourceCoordinatorName: childSourceCoordinatorName,
                     transferCart: $transferCart
                 )
             )
@@ -280,7 +291,7 @@ struct TransferLandingCoordinator: View {
             AnyView(
                 ProxyTransferNewRecipientCoordinator(
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
-                    sourceCoordinatorName: backTarget,
+                    sourceCoordinatorName: childSourceCoordinatorName,
                     transferCart: $transferCart
                 )
             )
@@ -290,7 +301,7 @@ struct TransferLandingCoordinator: View {
             AnyView(
                 TransferCurrencySelectionCoordinator(
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
-                    sourceCoordinatorName: backTarget,
+                    sourceCoordinatorName: childSourceCoordinatorName,
                     transferCart: $transferCart,
                     recipientAccount: useCase.binding(\.output.recipientAccount),
                     recipientProfile: .constant(TransactionActorProfile()),
@@ -307,7 +318,7 @@ struct TransferLandingCoordinator: View {
             AnyView(
                 BankSummaryCoordinator(
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
-                    sourceCoordinatorName: backTarget,
+                    sourceCoordinatorName: childSourceCoordinatorName,
                     transferCart: $transferCart,
                     bank: useCase.binding(\.output.bank),
                     transferCategory: useCase.binding(\.output.transferCategory),
@@ -320,7 +331,7 @@ struct TransferLandingCoordinator: View {
             AnyView(
                 TransferCountrySelectionCoordinator(
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
-                    sourceCoordinatorName: backTarget,
+                    sourceCoordinatorName: childSourceCoordinatorName,
                     transferCart: $transferCart,
                     transferCategory: useCase.binding(\.output.transferCategory),
                     transferMethod: useCase.binding(\.output.predefineSelectedTransferMethod)
@@ -332,7 +343,7 @@ struct TransferLandingCoordinator: View {
             AnyView(
                 TelegraphicRecipientFormCoordinator(
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
-                    sourceCoordinatorName: backTarget,
+                    sourceCoordinatorName: childSourceCoordinatorName,
                     transferCart: $transferCart,
                     bank: useCase.binding(\.output.bank),
                     transferCategory: useCase.binding(\.output.transferCategory),
