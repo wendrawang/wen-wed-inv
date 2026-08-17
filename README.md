@@ -13,17 +13,20 @@ bawah diambil.
 ```
 Sources/Debug/LifecycleProbe.swift         probe opt-in per class
 Sources/Debug/LifecycleTracker.swift       counter + checkpoint
+Sources/Debug/RenderCounter.swift          penghitung evaluasi body (sementara)
 Sources/Navigation/LazyNavigationLink.swift  destination yang ditunda
 Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
 Examples/DetailCardInfo/                   layar rujukan, sudah diperbaiki
 Examples/Base/UseCase.swift                penjagaan base yang berlaku global
 Examples/Base/Screen.swift                 tanpa ScreenContentViewModel terbuang
 docs/STATUS.md                             status semua temuan
+docs/MEASUREMENT_GUIDE.md                  cara mengukur dengan Instruments
 docs/LIFECYCLE_RULES.md                    aturan lifecycle
 docs/ACCESS_MATRIX.md                      matriks akses antar lapisan
 docs/SCREEN_PATTERN.md                     pola layar + checklist migrasi
 docs/BASE_VIEWMODEL_FINDINGS.md            temuan di ScreenContentViewModel
 docs/SCREEN_CONTAINER_FINDINGS.md          temuan di Screen & ScreenContent
+docs/TRANSFER_LANDING_FINDINGS.md          temuan di layar panjang berlist
 .swiftlint.yml                             aturan lifetime & performa render
 .github/pull_request_template.md           checklist PR
 .github/workflows/lint.yml                 penegakan di CI
@@ -87,6 +90,10 @@ Penelusuran ini menghasilkan belasan temuan dengan tingkat kepastian berbeda.
 [docs/STATUS.md](docs/STATUS.md) memisahkan mana yang sudah terbukti, mana yang
 masih dugaan dan butuh pengukuran, dan mana yang sudah dicoret — baca itu dulu
 sebelum mengerjakan apa pun dari dokumen temuan.
+
+Untuk yang masih dugaan, [docs/MEASUREMENT_GUIDE.md](docs/MEASUREMENT_GUIDE.md)
+berisi cara mengukurnya: empat pengukuran, apa yang dibaca dari masing-masing,
+dan urutan yang paling hemat waktu.
 
 ## Prinsip yang mendasarinya
 

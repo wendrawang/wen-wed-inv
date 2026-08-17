@@ -48,6 +48,8 @@ Sesudahnya satu.
 
 ## Masih dugaan — butuh pengukuran sebelum disentuh
 
+Prosedur lengkapnya di [MEASUREMENT_GUIDE.md](MEASUREMENT_GUIDE.md).
+
 | Dugaan | Cara memastikan |
 |---|---|
 | `scrollViewContainerSize` / `scrollViewContentSize` sebagai `@Published` adalah penyebab fps tidak stabil | Instruments template SwiftUI, kolom View Body, scroll layar terpanjang di build **Release** |
@@ -62,7 +64,7 @@ Sesudahnya satu.
 
 | Catatan | Kapan menggigit |
 |---|---|
-| `renewIdentifier()` yang dipanggil berulang membuang hasil fetch yang sedang berjalan | Hanya untuk UseCase yang benar-benar asinkron. Layar ini sinkron, jadi tidak terkena |
+| `renewIdentifier()` yang dipanggil berulang membuang hasil fetch yang sedang berjalan | **Nyata di Transfer Landing** — `loadData(pageNumber:searchKeyword:)` memanggil jaringan sungguhan. Detail Card Info sinkron sehingga tidak terkena |
 | Memanggil `callback.onXxx()` langsung melewati jaminan main thread | Setiap UseCase yang `loadData()`-nya bisa berjalan di luar main thread |
 | Mengganti sub-ViewModel yang memiliki sumber daya (gambar, web view) memicu muat ulang | Layar yang menaruh `ImageViewModel` di sub-ViewModel yang di-refresh |
 | `onCreateNavigationLinks` bertipe `AnyView` ada di body setiap layar | Hilang sendiri kalau navigasi pindah ke `UINavigationController` |
@@ -79,6 +81,21 @@ Sesudahnya satu.
 | Observer `NotificationCenter` bocor karena tidak pernah di-remove | Sejak iOS 9 observer bergaya selector disimpan weak dan otomatis nol |
 | Frame pertama sudah lengkap setelah `loadData()` di builder | `startFetchSucceed(_:)` asinkron, jadi selalu ada selisih satu frame |
 | Coordinator perlu memanggil `loadData()` | `Screen.onAppear` sudah melakukannya; memanggil lagi berarti muat ganda |
+
+---
+
+## Layar berikutnya: Transfer Landing
+
+Analisis lengkapnya di [TRANSFER_LANDING_FINDINGS.md](TRANSFER_LANDING_FINDINGS.md).
+Enam temuan, tiga di antaranya tidak muncul di layar pendek:
+
+| Temuan | Status |
+|---|---|
+| `@Published` array di-`append` per baris — satu penerbitan per kontak | Terbukti dari kode; kandidat terkuat untuk fps di layar ini |
+| `.id(destinationCoordinatorName)` merobohkan seluruh layar tiap navigasi | Terbukti dari kode; terikat keputusan navigasi |
+| Sepuluh retain cycle, dua di antaranya per baris list | Terbukti dari kode; butuh test untuk memastikan |
+| Kamus sembilan closure dibangun ulang tiap render | Terbukti dari kode |
+| Kamus closure sebagai lazy navigation | **Sudah benar** — hanya satu tujuan yang dibangun |
 
 ---
 
