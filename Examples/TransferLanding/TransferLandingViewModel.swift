@@ -8,7 +8,9 @@ import SwiftUI
 ///
 /// 1. Dua penanda tujuan navigasi pindah ke sini dari coordinator.
 /// 2. Setiap closure yang disimpan memakai `[weak self]`.
-/// 3. `setupRecipientList()` membangun ke array lokal lalu menerbitkan sekali.
+/// 3. `setupRecipientList()` membangun ke array lokal lalu menerbitkan sekali,
+///    dan baris yang sudah ada dipakai ulang supaya posisi scroll bertahan
+///    saat halaman berikutnya datang.
 /// 4. `selectedTransferCategory` menjaga nilai sebelum menerbitkan.
 /// 5. `useCase` dijadikan `lazy` supaya nilai defaultnya tidak pernah dibuat.
 class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalProtocol {
@@ -82,7 +84,17 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
     override func loadData() {
         useCase.requestLoadData()
         setupView()
-        if selectedResponseRecipientTransfers.isEmpty {
+        // PERUBAHAN: arah penjagaannya dibalik kembali ke bentuk aslinya.
+        //
+        // Saya sempat menulisnya terbalik (`isEmpty` → return), dan akibatnya
+        // `super.loadData()` tidak pernah tercapai pada pembukaan pertama —
+        // saat itulah daftarnya justru masih kosong. Layar terbuka tanpa
+        // memuat halaman pertama.
+        //
+        // Yang benar: kalau datanya sudah ada di repository (kembali dari
+        // layar tujuan, misalnya), tidak perlu memuat ulang. Kalau kosong,
+        // teruskan ke `super` supaya halaman pertama diambil.
+        if !selectedResponseRecipientTransfers.isEmpty {
             return
         }
         super.loadData()
@@ -98,6 +110,8 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
 
     override func reloadData() {
         accountHeadlineViewModels.removeAll()
+        // PERUBAHAN: cache baris ikut dikosongkan, sepasang dengan baris di atas.
+        accountHeadlineViewModelCache.removeAll()
         useCase.resetRecipientList()
         super.reloadData()
     }
@@ -114,8 +128,9 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
 
         for data in selectedResponseRecipientTransfers {
             for bankContact in data.bankContacts {
+                // PERUBAHAN: lewat cache, bukan langsung ke `make…`.
                 accountHeadlineViewModels.append(
-                    makeAccountHeadlineViewModel(bankContact)
+                    accountHeadlineViewModel(for: bankContact)
                 )
             }
 
@@ -131,6 +146,42 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
         if accountHeadlineViewModels.isEmpty {
             setupEmptyState()
         }
+    }
+
+    // PERUBAHAN: baris yang sudah pernah dibangun dipakai lagi.
+    //
+    // `selectedResponseRecipientTransfers` menampung **semua** halaman yang
+    // sudah diterima, jadi setiap kali halaman baru datang, loop di atas
+    // melewati halaman 1 sampai N. Tanpa cache, baris halaman 1 dibangun ulang
+    // sebagai objek baru — dan karena `AccountHeadlineViewModel` adalah class,
+    // objek baru berarti identitas baru, sehingga list dianggap berganti
+    // seluruhnya dan posisi scroll kembali ke atas tepat saat halaman 2 masuk.
+    //
+    // Cache dikosongkan bersamaan dengan `accountHeadlineViewModels.removeAll()`
+    // di `reloadData()` dan `flushData()`. Itu penting: `bankContact` ikut
+    // tertangkap di dalam closure baris, jadi setelah favorit di-toggle atau
+    // kata kunci berubah, barisnya memang harus dibangun ulang — dan kedua
+    // jalur itu sama-sama lewat `reloadData()`.
+    //
+    // Kuncinya sengaja distringkan lewat interpolasi supaya tidak bergantung
+    // pada tipe `BankContact.identifier`. Kalau di proyek Anda `identifier`
+    // sudah berupa `String` yang unik, pemanggilan `String(describing:)`-nya
+    // boleh dihapus.
+    private var accountHeadlineViewModelCache = [String: AccountHeadlineViewModel]()
+
+    // PERUBAHAN: pembungkus cache untuk `makeAccountHeadlineViewModel`.
+    private func accountHeadlineViewModel(
+        for bankContact: BankContact
+    ) -> AccountHeadlineViewModel {
+        let key = String(describing: bankContact.identifier)
+
+        if let cachedAccountHeadlineViewModel = accountHeadlineViewModelCache[key] {
+            return cachedAccountHeadlineViewModel
+        }
+
+        let accountHeadlineViewModel = makeAccountHeadlineViewModel(bankContact)
+        accountHeadlineViewModelCache[key] = accountHeadlineViewModel
+        return accountHeadlineViewModel
     }
 
     // PERUBAHAN: isi loop dipindah ke fungsi ini supaya `[weak self]`-nya
@@ -231,6 +282,8 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
         selectedTransferCategory = .unspecified
         bankSelectionAdapter = BankSelectionAdapter()
         accountHeadlineViewModels.removeAll()
+        // PERUBAHAN: cache baris ikut dikosongkan, sepasang dengan baris di atas.
+        accountHeadlineViewModelCache.removeAll()
         transferCategoryViewModel.categoryItemViewModels.removeAll()
         privateAccountSelectionWidgetViewModel.removeAllBankAccountItemViewModels()
     }

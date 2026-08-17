@@ -79,7 +79,7 @@ private func setupRecipientList() {
 
     for data in selectedResponseRecipientTransfers {
         for bankContact in data.bankContacts {
-            models.append(makeAccountHeadlineViewModel(bankContact))
+            models.append(accountHeadlineViewModel(for: bankContact))
         }
 
         infiniteScrollViewModel.updatePagination(data.pagination)
@@ -97,8 +97,53 @@ private func setupRecipientList() {
 }
 ```
 
-Bangun ke array lokal, terbitkan sekali di akhir. Dari 22 penerbitan jadi satu,
-tanpa mengubah perilaku apa pun.
+Bangun ke array lokal, terbitkan sekali di akhir. Dari 22 penerbitan jadi satu.
+
+### Beban kedua: identitas baris, dan posisi scroll
+
+Menerbitkan sekali tidak cukup. Beban kedua di atas — daftar dibangun ulang
+dari **semua** halaman setiap kali satu halaman baru datang — punya akibat yang
+langsung terasa penggunanya: pengguna scroll ke bawah, halaman 2 masuk, list
+melompat kembali ke atas.
+
+Sebabnya identitas. `AccountHeadlineViewModel` adalah class, jadi baris halaman
+1 yang dibangun ulang menjadi objek berbeda meski isinya sama persis. Bagi
+SwiftUI itu list yang sepenuhnya baru, bukan list lama yang bertambah panjang,
+dan posisi scroll tidak punya tempat untuk bertahan.
+
+Perbaikannya cache per kontak — bangun sekali, pakai lagi:
+
+```swift
+private var accountHeadlineViewModelCache = [String: AccountHeadlineViewModel]()
+
+private func accountHeadlineViewModel(
+    for bankContact: BankContact
+) -> AccountHeadlineViewModel {
+    let key = String(describing: bankContact.identifier)
+
+    if let cached = accountHeadlineViewModelCache[key] {
+        return cached
+    }
+
+    let model = makeAccountHeadlineViewModel(bankContact)
+    accountHeadlineViewModelCache[key] = model
+    return model
+}
+```
+
+Cache dikosongkan **bersamaan** dengan `accountHeadlineViewModels.removeAll()`
+di `reloadData()` dan `flushData()` — jangan di salah satunya saja. `bankContact`
+ikut tertangkap di dalam closure baris, jadi setelah favorit di-toggle atau kata
+kunci berubah, barisnya memang harus dibangun ulang; dan kedua jalur itu
+sama-sama melewati `reloadData()`.
+
+Satu catatan kejujuran: versi lama pun membangun ulang seluruh baris, jadi
+lompatan scroll ini bukan sesuatu yang lahir dari perbaikan §1 — ia sudah ada
+sebelumnya dan baru terlihat setelah `.id()` dilepas, karena sebelum itu seluruh
+layar memang dirobohkan setiap kali. Kalau setelah cache ini posisinya masih
+melompat, tersangka berikutnya `transformToSectionedItems()`: kalau ia
+menciptakan objek header baru setiap kali dipanggil, identitas di sekitar
+barisnya tetap berganti. Itu perlu dibaca langsung, bukan ditebak.
 
 ---
 
