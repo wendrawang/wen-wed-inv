@@ -15,9 +15,12 @@ Sources/Debug/LifecycleProbe.swift         probe opt-in per class
 Sources/Debug/LifecycleTracker.swift       counter + checkpoint
 Sources/Debug/RenderCounter.swift          penghitung evaluasi body (sementara)
 Sources/Navigation/LazyNavigationLink.swift  destination yang ditunda
+Sources/Support/PropertyBindable.swift      useCase.binding(\.output.x)
 Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
-Examples/DetailCardInfo/                   layar rujukan, sudah diperbaiki
+Examples/DetailCardInfo/                   layar daun
+Examples/TransferLanding/                  layar berlist dengan banyak tujuan
 Examples/Base/UseCase.swift                penjagaan base yang berlaku global
+Examples/Base/UseCase+PropertyBindable.swift  konformansi binding, terpisah
 Examples/Base/Screen.swift                 tanpa ScreenContentViewModel terbuang
 docs/STATUS.md                             status semua temuan
 docs/MEASUREMENT_GUIDE.md                  cara mengukur dengan Instruments
@@ -37,10 +40,11 @@ ia menyebut tipe milik aplikasi (`Screen`, `UseCase`, `ScreenContentViewModel`,
 `R.*`) yang tidak ada di repo ini. Folder ini juga tidak ikut di-lint. Salin
 isinya ke proyek, jangan di-build dari sini.
 
-Satu bagian yang perlu Anda sunting setelah menyalin: `stubbedForCardInfoTests()`
-di bagian bawah `DetailCardInfoScreenViewModelTests.swift`. Bentuknya tebakan
+Dua bagian yang perlu Anda sunting setelah menyalin. `stubbedForCardInfoTests()`
+di bagian bawah `DetailCardInfoScreenViewModelTests.swift` — bentuknya tebakan
 dari pemakaian `BankCard(.unspecified)`, jadi sesuaikan dengan inisialiser
-sebenarnya. Dua dari tiga test tidak membutuhkannya sama sekali.
+sebenarnya. Dan dua test terakhir di `TransferLandingViewModelTests.swift`
+membutuhkan `RecipientService` yang di-stub. Test lainnya berjalan apa adanya.
 
 ## Cara memakai
 
@@ -48,6 +52,11 @@ Untuk menulis atau memigrasi sebuah layar, baca
 [docs/SCREEN_PATTERN.md](docs/SCREEN_PATTERN.md) — sebelas aturan beserta
 checklist migrasi, diturunkan dari satu bug nyata di layar Detail Debit Card
 Info (CVV dan nomor kartu kadang kosong).
+
+Kedua contoh di `Examples/` memakai bentuk yang sama. Satu-satunya percabangan:
+coordinator yang punya tujuan memisahkan "tautan dibangun" dari "tautan
+terpilih" — lihat bagian "Satu pola, satu penyesuaian untuk layar bercabang".
+Coordinator daun tidak perlu itu.
 
 Untuk aturan lifecycle-nya, baca
 [docs/LIFECYCLE_RULES.md](docs/LIFECYCLE_RULES.md). Ringkasnya, ada tiga

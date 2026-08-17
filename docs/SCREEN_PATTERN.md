@@ -162,6 +162,93 @@ di siklus layar.
 
 ---
 
+## Satu pola, satu penyesuaian untuk layar bercabang
+
+Kedua contoh di `Examples/` memakai bentuk yang sama: tidak ada `viewModel`
+maupun `useCase` sebagai property coordinator, semuanya dibangun di dalam
+`createDestination()` yang hanya berjalan sekali saat layar di-push.
+
+Bedanya cuma satu, dan hanya muncul di layar yang punya banyak tujuan.
+
+### Kenapa layar bercabang butuh dua tahap
+
+Layar daun seperti Detail Card Info tidak punya tautan anak sama sekali, jadi
+tidak ada yang perlu dipikirkan.
+
+Layar seperti Transfer Landing membangun tautan **hanya untuk tujuan yang
+sedang dipilih** — itu yang membuat layar dengan sembilan tujuan tidak
+membangun sembilan cabang sekaligus. Tapi ada akibatnya: tautan anak baru
+muncul di pohon view pada saat tujuannya ditentukan, dan pada saat itu
+selection-nya **sudah** sama dengan tag-nya. `NavigationView` di iOS 13–14
+tidak melakukan push untuk tautan seperti itu — ia perlu melihat perpindahan
+dari tidak-terpilih ke terpilih.
+
+Gejalanya persis: tautannya tidak berganti karena satu tujuan sudah terlanjur
+terpilih sejak tautannya lahir.
+
+### Penyelesaiannya: pisahkan "dibangun" dari "terpilih"
+
+```swift
+/// Menentukan tautan mana yang dibangun di pohon view.
+@State private var pendingDestinationCoordinatorName: String?
+
+/// Menentukan tautan mana yang terpilih.
+@State private var activeDestinationCoordinatorName: String?
+
+private func startDestination(_ coordinatorName: String) {
+    let active = $activeDestinationCoordinatorName
+
+    pendingDestinationCoordinatorName = coordinatorName   // tautannya masuk
+
+    DispatchQueue.main.async {
+        active.wrappedValue = coordinatorName             // baru dinyalakan
+    }
+}
+```
+
+Tautannya masuk ke pohon dalam keadaan belum terpilih, lalu selection-nya
+dinyalakan satu putaran runloop kemudian. SwiftUI melihat perpindahan yang
+dibutuhkannya, tautannya tetap hanya satu, dan `.id()` tidak diperlukan.
+
+Menyetel keduanya sekaligus tidak bekerja — itu sama saja dengan keadaan
+semula.
+
+### Yang digantikan
+
+Versi lama memakai `.id(destinationCoordinatorName)` untuk mencapai hal yang
+sama: mengubah identitas seluruh layar supaya tautannya terpasang di pohon
+yang benar-benar baru. Itu bekerja, tetapi merobohkan dan membangun ulang
+seluruh `Screen` setiap kali berpindah dan setiap kali kembali — membawa serta
+posisi scroll, isi list, dan kata kunci pencarian.
+
+`.id()` juga tidak bisa hidup bersama `LazyNavigationLink`, karena builder lazy
+hanya berjalan sekali lalu hasilnya dibekukan sehingga nilai `.id()` tidak
+pernah berubah lagi. Dua tahap ini yang membuat keduanya bisa dipakai bersama.
+
+> Kalau sebuah coordinator punya tujuan, pakai dua tahap. Kalau ia daun, tidak
+> perlu. Itu satu-satunya percabangan dalam pola ini.
+
+### Binding ke output UseCase
+
+Selama UseCase disimpan sebagai `@State`, binding ke output-nya ditulis dengan
+projected value: `$useCase.output.recipientAccount`. Bentuk itu hilang begitu
+UseCase dibangun di dalam `createDestination()` sebagai objek biasa.
+
+Penggantinya ada di `Sources/Support/PropertyBindable.swift`, dan berlaku untuk
+semua UseCase lewat satu baris `extension UseCase: PropertyBindable {}`:
+
+```swift
+recipientAccount: useCase.binding(\.output.recipientAccount)
+```
+
+`ReferenceWritableKeyPath` menjamin di waktu kompilasi bahwa jalurnya berakar
+pada tipe referensi dan seluruh ruasnya bisa ditulis, jadi keypath yang salah
+tidak akan lolos. Binding-nya menahan UseCase secara kuat — memang begitu
+seharusnya, dan tidak membentuk lingkaran karena UseCase tidak memegang pohon
+view balik.
+
+---
+
 ## Aturan
 
 ### 1. Coordinator tidak menyimpan ViewModel atau UseCase
@@ -347,6 +434,25 @@ private static let monthAndYearFormatter: DateFormatter = {
 Untuk format yang harus mengikuti bahasa pengguna, pakai property instance
 supaya ia dibangun ulang setiap layar dibuka.
 
+### 9b. Jangan mengubah `var x = default` jadi `let` saat merapikan
+
+Ini jebakan yang tidak terlihat dari file yang sedang Anda sunting, karena
+akibatnya muncul di file lain.
+
+Pada struct `View`, bentuk deklarasi menentukan memberwise init:
+
+| Deklarasi | Di memberwise init |
+|---|---|
+| `var x: T = default` | ada, dengan nilai default — pemanggil boleh melewatinya |
+| `let x: T` | ada, **wajib** — setiap pemanggil harus mengisinya |
+| `let x: T = default` | **tidak ada sama sekali** — pemanggil yang mengisinya gagal kompilasi |
+
+Jadi merapikan `var predefineTransferCategory: TransferCategory = .unspecified`
+menjadi `let` akan meledakkan setiap call site sekaligus, dan mengembalikan
+default-nya sambil tetap `let` justru meledakkan call site yang berlawanan.
+
+Aturannya: **`let` hanya untuk property yang memang wajib diisi pemanggil.**
+Kalau ada nilai default, biarkan `var`.
 ### 10. UseCase tidak pernah menyentuh `callback` secara langsung
 
 Helper di `UseCaseProtocol` — `startFetchLoading()`, `stopLoading()`,
