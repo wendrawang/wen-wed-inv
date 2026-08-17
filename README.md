@@ -15,6 +15,9 @@ Sources/Debug/LifecycleProbe.swift         probe opt-in per class
 Sources/Debug/LifecycleTracker.swift       counter + checkpoint
 Sources/Debug/RenderCounter.swift          penghitung evaluasi body (sementara)
 Sources/Navigation/LazyNavigationLink.swift  destination yang ditunda
+Sources/Navigation/FlowNavigator.swift     navigasi flow sebagai objek
+Sources/Navigation/FlowNavigationController.swift  bar tersembunyi + swipe back
+Sources/Navigation/FlowPresenter.swift     titik temu NavigationView ↔ UIKit
 Sources/Support/PropertyBindable.swift      useCase.binding(\.output.x)
 Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
 Examples/DetailCardInfo/                   layar daun
@@ -23,6 +26,7 @@ Examples/Base/UseCase.swift                penjagaan base yang berlaku global
 Examples/Base/UseCase+PropertyBindable.swift  konformansi binding, terpisah
 Examples/Base/Screen.swift                 tanpa ScreenContentViewModel terbuang
 docs/STATUS.md                             status semua temuan
+docs/NAVIGATION_DECISION.md                keputusan navigasi + urutan migrasi
 docs/MEASUREMENT_GUIDE.md                  cara mengukur dengan Instruments
 docs/LIFECYCLE_RULES.md                    aturan lifecycle
 docs/ACCESS_MATRIX.md                      matriks akses antar lapisan
@@ -126,11 +130,13 @@ dalam dua minggu.
 
 Empat hal ini menentukan bentuk sisa template:
 
-1. **Navigasi** — `NavigationView` + `LazyNavigationLink`, atau
-   `UINavigationController` + `UIHostingController`. Yang kedua memberi
-   `popToRoot` dan deeplink yang deterministik serta lifetime ViewModel yang
-   jelas; yang pertama jauh lebih murah diadopsi. Keduanya bisa berdampingan
-   per flow.
+1. ~~**Navigasi**~~ — **sudah diputuskan**, lihat
+   [docs/NAVIGATION_DECISION.md](docs/NAVIGATION_DECISION.md):
+   `UINavigationController` + `UIHostingController` di dalam flow, coordinator
+   menjadi class biasa, `NavigationView` tetap untuk yang belum dipindah.
+   Keduanya berdampingan lewat satu titik temu per flow. Dasarnya: keempat
+   mekanisme yang dibutuhkan Transfer Landing agar bisa berpindah halaman
+   semuanya menambal `NavigationView`, bukan menambal arsitekturnya.
 2. **Concurrency** — `async/await` (bisa di-back-deploy ke iOS 13 sejak
    Xcode 13.2, dengan runtime concurrency ikut di bundle) atau Combine murni.
 3. **DI** — container manual berbasis protocol factory, atau library seperti
