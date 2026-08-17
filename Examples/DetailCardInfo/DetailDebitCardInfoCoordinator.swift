@@ -81,15 +81,12 @@ struct DetailDebitCardInfoCoordinator: View {
         viewModel.configure(with: bankCard)
         viewModel.setUseCase(useCase)
 
-        // Mengisi repository sebelum view pertama dirender.
+        // Tidak memanggil loadData() di sini. `Screen` sudah memanggilnya lewat
+        // onAppear, jadi coordinator hanya membangun dan menghubungkan.
         //
-        // Ini inti perbaikannya. ViewModel membaca `useCase.bankCard`, yang
-        // isinya hanya terisi oleh `loadData()`. Versi lama memanggil
-        // `setupView()` langsung dari body, jadi field dibaca saat repository
-        // masih kosong dan layar bergantung pada render kedua untuk terisi —
-        // render yang kadang tidak pernah datang.
-        viewModel.loadData()
-
+        // Yang wajib dilakukan coordinator adalah `renewIdentifier()` di
+        // createUseCase() — tanpa itu `state` tetap .inactive dan
+        // `requestLoadData()` dari onAppear akan dilewati diam-diam.
         return viewModel
     }
 

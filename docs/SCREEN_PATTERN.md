@@ -204,24 +204,23 @@ Satu jalur saja untuk mengisi tampilan: `loadData()` mengisi repository, lalu
 callback `onFetchSucceed` menjalankan `setupView()`. Jadikan `setupView()`
 `private` supaya aturan ini tidak bisa dilanggar tanpa sengaja.
 
+Pemicunya sudah dipegang framework — `Screen.onAppear` memanggil `initState()`
+lalu `loadData()`. Jadi coordinator **tidak** memanggil `loadData()` sama
+sekali; ikut memanggilnya justru menghasilkan pemuatan ganda. Yang wajib
+dilakukan coordinator hanyalah `renewIdentifier()` saat UseCase dibuat, karena
+tanpa itu `requestLoadData()` dari `onAppear` dilewati diam-diam.
+
 ```swift
+// Di coordinator: bangun dan hubungkan, tidak lebih.
+useCase.renewIdentifier()
+useCase.input.bankCard = bankCard
 viewModel.setUseCase(useCase)
-viewModel.loadData()
 ```
 
-Perlu diketahui apa yang **tidak** dijamin di sini. `startFetchSucceed(_:)`
-mengirim `onFetchSucceed` lewat `DispatchQueue.main.async`, jadi `setupView()`
-belum berjalan saat builder selesai. Frame pertama tetap merender field kosong,
-dan frame berikutnya yang terisi — selisihnya satu frame, tidak terlihat mata.
-
-Satu frame itu sengaja tidak dikejar. Menghilangkannya berarti memanggil
-`setupView()` secara langsung dari jalur pembangunan, dan jalur kedua itulah
-yang dulu memungkinkan `setupView()` membaca repository kosong. Satu jalur yang
-konsisten lebih berharga daripada satu frame.
-
-Yang dijamin justru ini: `setupView()` **mustahil** membaca repository kosong,
-karena satu-satunya pemicunya adalah `onFetchSucceed`, dan `onFetchSucceed`
-hanya menyala dari dalam `loadData()` setelah repository terisi.
+Yang dijamin oleh aturan ini: `setupView()` **mustahil** membaca repository
+kosong, karena satu-satunya pemicunya adalah `onFetchSucceed`, dan
+`onFetchSucceed` hanya menyala dari dalam `loadData()` setelah repository
+terisi.
 
 ### 4. ViewModel selalu membaca `repository`, tidak pernah `input`
 
@@ -379,7 +378,7 @@ Jadikan wajib, supaya kesalahannya tertangkap saat kompilasi.
 - [ ] Tidak ada cabang yang mengembalikan ViewModel kosong saat link belum aktif
 - [ ] Coordinator tidak memanggil `flushData()` maupun `setupView()`
 - [ ] Semua objek dibangun di dalam builder `LazyNavigationLink`
-- [ ] `setupView()` sudah `private`, dan coordinator memanggil `loadData()`
+- [ ] `setupView()` sudah `private`, dan coordinator **tidak** memanggil `loadData()`
 - [ ] ViewModel membaca lewat satu akses tunggal di UseCase
 - [ ] Semua sub-ViewModel di-assign ulang, tidak ada yang diubah di tempat
 - [ ] Semua closure yang disimpan memakai `[weak self]` atau hanya menangkap nilai

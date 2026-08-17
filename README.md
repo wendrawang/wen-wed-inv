@@ -20,6 +20,7 @@ Examples/Base/UseCase.swift                penjagaan base yang berlaku global
 docs/LIFECYCLE_RULES.md                    aturan lifecycle
 docs/SCREEN_PATTERN.md                     pola layar + checklist migrasi
 docs/BASE_VIEWMODEL_FINDINGS.md            temuan di ScreenContentViewModel
+docs/SCREEN_CONTAINER_FINDINGS.md          temuan di Screen & ScreenContent
 .swiftlint.yml                             aturan lifetime & performa render
 .github/pull_request_template.md           checklist PR
 .github/workflows/lint.yml                 penegakan di CI
