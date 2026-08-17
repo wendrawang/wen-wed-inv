@@ -48,19 +48,21 @@ Pasang saat:
 - Sebuah layar berat — banyak gambar, list panjang — dan Anda ingin
   memastikan ia benar-benar dilepas.
 
-Pencatatan dan pencetakan dipisah. Counter **selalu** jalan, sedangkan konsol
-default-nya diam:
+Pencatatan dan pencetakan dipisah: counter **selalu** jalan, sedangkan konsol
+bisa disaring. Default pencetakannya `.all`, jadi memasang probe langsung
+terlihat hasilnya tanpa konfigurasi apa pun. Ini aman karena probe opt-in per class — yang tercetak
+hanya tipe yang sengaja dipasangi.
 
 ```swift
 // AppDelegate, hanya untuk build DEBUG
 #if DEBUG
-LifecycleTracker.shared.loggingPolicy = .none              // sehari-hari
-LifecycleTracker.shared.loggingPolicy = .matching(["DebitCard"])  // saat audit
+LifecycleTracker.shared.loggingPolicy = .matching(["DebitCard"])  // saring
+LifecycleTracker.shared.loggingPolicy = .none                     // bungkam
 #endif
 ```
 
-Dengan begitu memasang probe tidak pernah mengganggu orang lain, tetapi
-checkpoint di Lapis 3 tetap punya data yang akurat.
+Turunkan hanya kalau konsolnya sudah benar-benar ramai. Counter tetap akurat
+apa pun pilihannya, jadi checkpoint di Lapis 3 tidak terpengaruh.
 
 ---
 
