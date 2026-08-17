@@ -24,11 +24,25 @@ dan skenario background/foreground, notifikasi, serta snackbar berjalan aman.
 
 ---
 
-## Terbukti dari kode, perbaikannya belum dipasang
+## Perbaikannya sudah ditulis, menunggu verifikasi di aplikasi
 
 | Temuan | Catatan |
 |---|---|
-| `Screen` membuang satu `ScreenContentViewModel` lengkap per konstruksi | Nilai default `@ObservedObject` selalu ditimpa oleh `content.viewModel`. Objek yang dibuang membawa 20-an `@Published` dan dua pendaftaran `NotificationCenter`. Perbaikannya ada di [SCREEN_CONTAINER_FINDINGS.md](SCREEN_CONTAINER_FINDINGS.md) temuan 2 |
+| `Screen` membuang satu `ScreenContentViewModel` lengkap per konstruksi | Nilai default `@ObservedObject` selalu ditimpa oleh `content.viewModel`. Objek yang dibuang membawa 20-an `@Published` dan dua pendaftaran `NotificationCenter`. Perbaikannya di [`Examples/Base/Screen.swift`](../Examples/Base/Screen.swift); cara mengukurnya di bawah |
+
+### Cara memverifikasi perbaikan `Screen`
+
+Objek yang dibuang adalah `ScreenContentViewModel` **base**, bukan subclass
+layar, jadi probe di ViewModel layar tidak akan melihatnya. Pengukurannya
+sekali jalan lalu dibongkar lagi:
+
+1. Pasang `LifecycleProbe` sementara di `ScreenContentViewModel` base.
+2. Buka satu layar, catat berapa `INIT ScreenContentViewModel` muncul.
+3. Pasang perbaikannya, buka layar yang sama, catat lagi.
+4. Lepas probe-nya.
+
+Sebelum perbaikan jumlahnya dua per layar — satu dibuang, satu dipakai.
+Sesudahnya satu.
 
 ---
 
