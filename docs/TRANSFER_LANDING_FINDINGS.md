@@ -119,17 +119,33 @@ kembali** — SwiftUI menganggapnya view yang sepenuhnya berbeda: seluruh
 Yang ikut hilang: posisi scroll, isi list, kata kunci pencarian, state pagination,
 dan seluruh `ScreenContentViewModel`. Lalu semuanya dimuat ulang.
 
-Ini juga kemungkinan besar tambalan, sama seperti `setupView()` di layar
-sebelumnya. `createNavigationLinks()` mengembalikan `AnyView`, dan `AnyView`
-menghapus structural identity sehingga SwiftUI tidak selalu menyadari isinya
-berubah. `.id()` memaksanya menyadari — dengan cara paling mahal yang tersedia.
+### Koreksi: `.id()` bukan tambalan
 
-Jalan keluarnya sama seperti sebelumnya: hilangkan penyebabnya. Kalau tautan
-navigasi tidak lagi dibungkus `AnyView`, `.id()` tidak lagi dibutuhkan. Ini
-bagian yang paling terikat pada keputusan navigasi yang masih menggantung, jadi
-sebaiknya tidak disentuh sendirian — tetapi **ukur dulu**: jalankan
-`RenderCounter`, navigasi ke satu tujuan lalu kembali, dan lihat berapa kali
-seluruh layar dibangun ulang.
+Saya sempat menulis di sini bahwa `.id()` adalah tambalan untuk `AnyView` yang
+menghapus structural identity. **Itu keliru.** Menghapusnya membuat navigasi ke
+layar berikutnya berhenti bekerja sama sekali.
+
+Mekanismenya: `createNavigationLinks()` hanya membangun tautan untuk tujuan
+yang cocok dengan `destinationCoordinatorName`, jadi saat nilainya masih nil
+tidak ada satu pun tautan anak di dalam pohon view. Ketika pengguna menekan
+sesuatu dan nilainya berubah, tautan anak baru **muncul dengan selection-nya
+sudah sama dengan tag-nya**. `NavigationView` di iOS 13–14 tidak melakukan push
+untuk tautan yang disisipkan dalam keadaan sudah terpilih — ia perlu melihat
+perpindahan dari tidak-terpilih ke terpilih. `.id()` membuat subtree-nya
+dibangun ulang sebagai identitas baru, sehingga tautannya terpasang di pohon
+yang benar-benar baru dan push-nya terjadi.
+
+Konsekuensi keduanya: **`.id()` tidak bisa dipakai bersama
+`LazyNavigationLink`.** Builder-nya hanya berjalan sekali lalu hasilnya
+disimpan, jadi nilai `.id()` beku pada pembacaan pertama — nil — dan tidak
+pernah berubah lagi.
+
+Biayanya tetap nyata: seluruh `Screen` dirobohkan dan dibangun ulang setiap kali
+tujuan berubah dan setiap kali kembali, membawa serta posisi scroll, isi list,
+dan kata kunci pencarian. Tetapi menghilangkannya berarti mengganti cara tautan
+anak disisipkan — misalnya menyisipkan tautannya lebih dulu lalu menyalakan
+selection-nya pada putaran runloop berikutnya. Itu perubahan yang harus
+dikerjakan sambil menjalankan aplikasinya, bukan ditebak dari kode.
 
 ---
 

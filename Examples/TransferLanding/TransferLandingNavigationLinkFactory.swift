@@ -4,11 +4,9 @@ extension TransferLandingCoordinator {
 
     /// Membangun tautan navigasi untuk satu tujuan.
     ///
-    /// Dipisahkan dari coordinator karena dua alasan. Pertama, closure yang
-    /// disimpan ViewModel jadi hanya menangkap satu nilai kecil dengan
-    /// dependensi yang terlihat jelas di daftar property — bukan salinan
-    /// seluruh struct coordinator beserta semua `@Binding` dan `@State`-nya.
-    /// Kedua, `switch`-nya tidak lagi berdesakan dengan logika coordinator.
+    /// Dipisahkan dari coordinator supaya `switch` sembilan cabangnya tidak
+    /// berdesakan dengan logika perutean, dan supaya dependensinya terlihat
+    /// jelas sebagai daftar property alih-alih tersebar di dalam kamus.
     ///
     /// Yang tidak berubah dari versi lama: hanya tujuan yang cocok dengan
     /// `destinationCoordinatorName` yang benar-benar dibangun. Itu sifat yang

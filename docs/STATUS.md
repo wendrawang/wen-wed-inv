@@ -92,7 +92,7 @@ Enam temuan, tiga di antaranya tidak muncul di layar pendek:
 | Temuan | Status |
 |---|---|
 | `@Published` array di-`append` per baris — satu penerbitan per kontak | Terbukti dari kode; kandidat terkuat untuk fps di layar ini |
-| `.id(destinationCoordinatorName)` merobohkan seluruh layar tiap navigasi | Terbukti dari kode; terikat keputusan navigasi |
+| `.id(destinationCoordinatorName)` merobohkan seluruh layar tiap navigasi | Nyata, **tetapi load-bearing** — menghapusnya mematikan navigasi, dan ia tidak bisa dipakai bersama `LazyNavigationLink` |
 | Sepuluh retain cycle, dua di antaranya per baris list | Terbukti dari kode; butuh test untuk memastikan |
 | Kamus sembilan closure dibangun ulang tiap render | Terbukti dari kode |
 | Kamus closure sebagai lazy navigation | **Sudah benar** — hanya satu tujuan yang dibangun |
