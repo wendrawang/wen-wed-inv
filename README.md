@@ -20,6 +20,7 @@ Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
 Examples/DetailCardInfo/                   layar daun
 Examples/TransferLanding/                  layar berlist dengan banyak tujuan
 Examples/Base/UseCase.swift                penjagaan base yang berlaku global
+Examples/Base/UseCase+PropertyBindable.swift  konformansi binding, terpisah
 Examples/Base/Screen.swift                 tanpa ScreenContentViewModel terbuang
 docs/STATUS.md                             status semua temuan
 docs/MEASUREMENT_GUIDE.md                  cara mengukur dengan Instruments
