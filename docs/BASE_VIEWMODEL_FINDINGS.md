@@ -1,11 +1,10 @@
 # Temuan di `ScreenContentViewModel`
 
-> **Sumbernya versi lama.** Analisis ini dibuat terhadap `ScreenContentViewModel`
-> **sebelum** perbaikan yang membuat `deinit` mulai terpanggil. Sebagian temuan
-> di bawah mungkin sudah tertutup. Jangan pakai dokumen ini sebagai daftar
-> pekerjaan — pakai sebagai daftar hal yang perlu dipastikan, dan biarkan test
-> yang memutuskan. `testScreenViewModelIsReleasedAfterInit` menjawab temuan 1
-> tanpa perlu membandingkan versi sama sekali.
+> **Sumbernya versi lama, dan temuan 1 sudah dicoret.** Analisis ini dibuat
+> terhadap `ScreenContentViewModel` **sebelum** perbaikan yang membuat `deinit`
+> mulai terpanggil. `testScreenViewModelIsReleasedAfterInit` sekarang **hijau**,
+> jadi temuan 1 di bawah sudah tertutup dan disimpan hanya sebagai catatan pola
+> — bukan pekerjaan. Status seluruh temuan ada di [STATUS.md](STATUS.md).
 
 Semua yang ada di sini berlaku untuk **setiap layar** di aplikasi, karena
 letaknya di base class. Perbaikan di sini menyebar ke ratusan halaman tanpa

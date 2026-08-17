@@ -10,7 +10,18 @@ class DetailCardInfoScreenViewModel: ScreenContentViewModel {
     @Published private(set) var tipsViewModel = TipsViewModel()
 
     private(set) var bankCardType: BankCardType = .unspecified
-    private(set) var useCase = DetailCardInfoScreenUseCase()
+    /// `lazy` supaya nilai defaultnya tidak pernah benar-benar dibuat.
+    ///
+    /// Tanpa `lazy`, ekspresi default dievaluasi saat ViewModel dibuat, lalu
+    /// langsung dibuang oleh `setUseCase(_:)` — terlihat jelas di log
+    /// lifecycle sebagai satu pasang INIT/DEINIT yang tidak ada gunanya.
+    /// Karena `setUseCase(_:)` **menulis** property ini sebelum ada yang
+    /// membacanya, inisialiser lazy-nya tidak pernah dijalankan sama sekali.
+    ///
+    /// Perlu diingat `lazy var` tidak aman diakses dari banyak thread
+    /// sekaligus sebelum terisi. Di sini aman karena ViewModel hanya disentuh
+    /// dari main thread.
+    private(set) lazy var useCase = DetailCardInfoScreenUseCase()
 
     /// Membuat `DateFormatter` termasuk operasi paling mahal di Foundation,
     /// dan pengisian tampilan bisa berjalan berkali-kali.

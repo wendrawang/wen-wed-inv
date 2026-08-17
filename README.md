@@ -17,6 +17,7 @@ Sources/Navigation/LazyNavigationLink.swift  destination yang ditunda
 Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
 Examples/DetailCardInfo/                   layar rujukan, sudah diperbaiki
 Examples/Base/UseCase.swift                penjagaan base yang berlaku global
+docs/STATUS.md                             status semua temuan
 docs/LIFECYCLE_RULES.md                    aturan lifecycle
 docs/ACCESS_MATRIX.md                      matriks akses antar lapisan
 docs/SCREEN_PATTERN.md                     pola layar + checklist migrasi
@@ -55,18 +56,36 @@ lapis dan hanya lapis pertama yang wajib untuk semua perubahan:
 3. **Checkpoint navigasi** — masuk ke layar terdalam, kembali ke root, pastikan
    tidak ada objek berumur layar yang tersisa.
 
-Pencatatan dan pencetakan log sengaja dipisah. Counter selalu jalan, konsol
-default-nya diam:
+Probe bersifat opt-in per class, jadi yang tercetak hanya tipe yang sengaja
+Anda pasangi probe. Karena itu default-nya `.all` — memasang probe langsung
+terlihat hasilnya, tanpa konfigurasi apa pun.
+
+Kalau nanti probe sudah terpasang di banyak tempat dan konsolnya jadi ramai,
+saring atau matikan di `AppDelegate`:
 
 ```swift
 #if DEBUG
-LifecycleTracker.shared.loggingPolicy = .none                    // sehari-hari
-LifecycleTracker.shared.loggingPolicy = .matching(["DebitCard"]) // saat audit
+LifecycleTracker.shared.loggingPolicy = .matching(["DebitCard"])
+LifecycleTracker.shared.loggingPolicy = .none
 #endif
 ```
 
-Jadi memasang probe di sebuah class tidak pernah membanjiri konsol orang lain,
-sementara checkpoint tetap punya data yang akurat.
+Counter tetap akurat apa pun pilihannya, jadi checkpoint tidak terpengaruh.
+
+### Kalau log tidak muncul
+
+Urut dari yang paling sering: build-nya Release (seluruh file probe ada di
+dalam `#if DEBUG`), class-nya belum dipasangi `LifecycleProbe`, atau
+`loggingPolicy` diturunkan di suatu tempat. Log memakai `os_log` level `.info`
+dengan kategori `ObjectLifecycle` — di konsol Xcode langsung terlihat, di
+Console.app saring dengan subsystem bundle identifier aplikasi.
+
+## Status temuan
+
+Penelusuran ini menghasilkan belasan temuan dengan tingkat kepastian berbeda.
+[docs/STATUS.md](docs/STATUS.md) memisahkan mana yang sudah terbukti, mana yang
+masih dugaan dan butuh pengukuran, dan mana yang sudah dicoret — baca itu dulu
+sebelum mengerjakan apa pun dari dokumen temuan.
 
 ## Prinsip yang mendasarinya
 

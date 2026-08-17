@@ -10,12 +10,12 @@ import os.log
 /// checkpoint (lihat `liveTypes()`) tetap bisa dipercaya walaupun konsol
 /// sedang dibungkam.
 enum LifecycleLoggingPolicy {
-    /// Cetak semua. Nyaman saat mengaudit satu flow, berisik di app besar.
+    /// Cetak semua tipe yang punya probe. Ini default-nya.
     case all
 
     /// Jangan cetak apa pun. Counter tetap jalan; pakai checkpoint untuk
-    /// membaca hasilnya. Ini pilihan yang tepat untuk pemakaian sehari-hari
-    /// pada codebase yang masih banyak anomali.
+    /// membaca hasilnya. Pilih ini kalau probe sudah terpasang di banyak
+    /// tempat dan konsolnya jadi ramai.
     case none
 
     /// Cetak hanya tipe yang namanya mengandung salah satu kata kunci ini.
@@ -48,10 +48,15 @@ final class LifecycleTracker {
 
     static let shared = LifecycleTracker()
 
-    /// Atur sekali di awal aplikasi, misalnya di `AppDelegate`.
-    /// Default `.none` supaya memasang probe tidak pernah membanjiri konsol
-    /// orang lain; naikkan ke `.matching([...])` saat Anda sedang mengaudit.
-    var loggingPolicy: LifecycleLoggingPolicy = .none
+    /// Default `.all` — memasang probe langsung terlihat hasilnya.
+    ///
+    /// Ini aman justru karena probe bersifat opt-in per class: yang tercetak
+    /// hanya tipe yang sengaja Anda pasangi probe, bukan seluruh aplikasi.
+    /// Turunkan ke `.matching([...])` atau `.none` di `AppDelegate` kalau
+    /// suatu saat probe sudah terpasang di banyak tempat dan konsolnya jadi
+    /// ramai. Counter tetap akurat apa pun pilihannya, jadi checkpoint tidak
+    /// terpengaruh.
+    var loggingPolicy: LifecycleLoggingPolicy = .all
 
     private let lock = NSLock()
 
