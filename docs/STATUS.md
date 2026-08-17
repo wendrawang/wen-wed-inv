@@ -48,6 +48,8 @@ Sesudahnya satu.
 
 ## Masih dugaan — butuh pengukuran sebelum disentuh
 
+Prosedur lengkapnya di [MEASUREMENT_GUIDE.md](MEASUREMENT_GUIDE.md).
+
 | Dugaan | Cara memastikan |
 |---|---|
 | `scrollViewContainerSize` / `scrollViewContentSize` sebagai `@Published` adalah penyebab fps tidak stabil | Instruments template SwiftUI, kolom View Body, scroll layar terpanjang di build **Release** |
