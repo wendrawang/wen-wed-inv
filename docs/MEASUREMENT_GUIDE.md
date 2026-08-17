@@ -10,13 +10,32 @@ dimajukan dengan angka. Dokumen ini cara mendapatkannya.
 Empat hal ini menentukan apakah hasilnya bisa dipercaya. Melewatkan salah satu
 membuat sisanya sia-sia.
 
-**Perangkat fisik, bukan simulator.** Simulator memakai GPU Mac dan tidak
-punya batasan memori maupun thermal yang sama. Angkanya tidak berarti apa-apa
-untuk keputusan performa.
+**Perangkat fisik untuk yang mengukur waktu.** Simulator memakai GPU Mac dan
+tidak punya batasan memori maupun thermal yang sama, jadi apa pun yang diukur
+dalam satuan waktu — hitch, durasi frame, biaya render — tidak berarti apa-apa
+di sana.
 
-**Build Release.** Di Xcode: Edit Scheme → Profile → Build Configuration =
-Release. Build Debug tidak mengoptimalkan ARC maupun kode Swift, dan bisa
-berbeda beberapa kali lipat.
+Tapi tidak semua pengukuran soal waktu. Yang menghitung **berapa kali** sesuatu
+terjadi ditentukan oleh graf dependensi SwiftUI, bukan oleh perangkat keras:
+
+| Pengukuran | Simulator cukup? |
+|---|---|
+| 1. Jumlah evaluasi `body` | **Ya**, bahkan build Debug |
+| 2. Hitch ratio | Tidak |
+| 3. A/B `.blur()` | Tidak |
+| 4. Memori — bocor atau tertunda | **Ya** |
+| 4b. Memori — seberapa membebani | Tidak |
+
+Kebetulan yang menguntungkan: pengukuran yang menjawab dugaan terkuat kita
+justru yang paling longgar syaratnya.
+
+**Build Release untuk yang mengukur waktu.** Di Xcode: Edit Scheme → Profile →
+Build Configuration = Release. Build Debug tidak mengoptimalkan ARC maupun kode
+Swift, dan bisa berbeda beberapa kali lipat.
+
+Untuk Ukuran 1 ini tidak berlaku. Tingkat optimasi tidak mengubah **berapa
+kali** `body` dipanggil — itu ditentukan oleh kapan `objectWillChange` menyala,
+bukan oleh seberapa cepat kodenya berjalan.
 
 **Ambil baseline dulu, sebelum mengubah apa pun.** Ini yang paling sering
 dilewatkan. Tanpa angka "sebelum", angka "sesudah" tidak bisa dibaca — Anda
@@ -56,7 +75,15 @@ mengamati objek itu — itu justru bukti bahwa `LazyNavigationLink` sudah bekerj
 
 ### Jalur cepat: `RenderCounter`
 
-Bekerja di semua versi iOS dan tidak butuh Instruments sama sekali.
+Bekerja di semua versi iOS, tidak butuh Instruments, dan **tidak butuh
+perangkat fisik** — simulator dengan build Debug sudah cukup, karena yang
+dihitung adalah jumlah invalidasi, bukan waktu.
+
+Satu hal yang perlu dijaga di simulator: scroll dengan trackpad punya kelajuan
+dan momentum yang berbeda dari jari. Itu tidak masalah selama Anda memakai cara
+yang **sama persis** untuk pengukuran sebelum dan sesudah. Angka per detiknya
+akan berbeda dari perangkat asli; yang dibandingkan adalah selisihnya, bukan
+nilai absolutnya.
 
 **Pasang di `Screen`, bukan di layar satu per satu.** `Screen` generik terhadap
 `Content`, jadi satu pemasangan otomatis memberi label per tipe layar dan
@@ -116,6 +143,10 @@ Keluarannya:
 atau 120/detik di perangkat ProMotion — berarti seluruh body dievaluasi ulang
 setiap frame. Itu mengonfirmasi dugaannya. Angka di bawah 5/detik berarti
 invalidasinya sudah wajar dan penyebab fps ada di tempat lain.
+
+Di simulator laju refresh-nya mengikuti layar Mac, jadi nilai absolutnya akan
+berbeda. Yang dibaca tetap sama: apakah angkanya sekelas laju frame, atau jauh
+di bawahnya.
 
 Setelah itu pasang penjagaan nilai pada kedua property `CGSize` (bentuknya ada
 di [BASE_VIEWMODEL_FINDINGS.md](BASE_VIEWMODEL_FINDINGS.md) temuan 2), lalu
