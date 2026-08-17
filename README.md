@@ -26,6 +26,7 @@ docs/ACCESS_MATRIX.md                      matriks akses antar lapisan
 docs/SCREEN_PATTERN.md                     pola layar + checklist migrasi
 docs/BASE_VIEWMODEL_FINDINGS.md            temuan di ScreenContentViewModel
 docs/SCREEN_CONTAINER_FINDINGS.md          temuan di Screen & ScreenContent
+docs/TRANSFER_LANDING_FINDINGS.md          temuan di layar panjang berlist
 .swiftlint.yml                             aturan lifetime & performa render
 .github/pull_request_template.md           checklist PR
 .github/workflows/lint.yml                 penegakan di CI
