@@ -228,6 +228,25 @@ pernah berubah lagi. Dua tahap ini yang membuat keduanya bisa dipakai bersama.
 > Kalau sebuah coordinator punya tujuan, pakai dua tahap. Kalau ia daun, tidak
 > perlu. Itu satu-satunya percabangan dalam pola ini.
 
+### Binding ke output UseCase
+
+Selama UseCase disimpan sebagai `@State`, binding ke output-nya ditulis dengan
+projected value: `$useCase.output.recipientAccount`. Bentuk itu hilang begitu
+UseCase dibangun di dalam `createDestination()` sebagai objek biasa.
+
+Penggantinya ada di `Sources/Support/PropertyBindable.swift`, dan berlaku untuk
+semua UseCase lewat satu baris `extension UseCase: PropertyBindable {}`:
+
+```swift
+recipientAccount: useCase.binding(\.output.recipientAccount)
+```
+
+`ReferenceWritableKeyPath` menjamin di waktu kompilasi bahwa jalurnya berakar
+pada tipe referensi dan seluruh ruasnya bisa ditulis, jadi keypath yang salah
+tidak akan lolos. Binding-nya menahan UseCase secara kuat — memang begitu
+seharusnya, dan tidak membentuk lingkaran karena UseCase tidak memegang pohon
+view balik.
+
 ---
 
 ## Aturan

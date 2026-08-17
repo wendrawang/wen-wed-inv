@@ -212,22 +212,6 @@ struct TransferLandingCoordinator: View {
         }
     }
 
-    /// Membuat `Binding` ke sebuah field di `useCase.output`.
-    ///
-    /// Versi lama menulis `$useCase.output.recipientAccount`, yang hanya
-    /// mungkin karena `useCase` disimpan sebagai `@State`. Di bentuk baru
-    /// UseCase datang sebagai objek biasa yang dibangun di
-    /// `createDestination()`, jadi binding-nya dibuat eksplisit.
-    private func output<Value>(
-        _ useCase: TransferLandingUseCase,
-        _ keyPath: ReferenceWritableKeyPath<TransferLandingUseCase, Value>
-    ) -> Binding<Value> {
-        Binding(
-            get: { useCase[keyPath: keyPath] },
-            set: { useCase[keyPath: keyPath] = $0 }
-        )
-    }
-
     private func navigationLinks(
         useCase: TransferLandingUseCase
     ) -> [String: TypeAliases.NavigationHandler] {[
@@ -237,15 +221,15 @@ struct TransferLandingCoordinator: View {
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
                     sourceCoordinatorName: backTarget,
                     transferCart: $transferCart,
-                    recipientAccount: output(useCase, \.output.recipientAccount),
+                    recipientAccount: useCase.binding(\.output.recipientAccount),
                     recipientProfile: .constant(TransactionActorProfile()),
                     sourceAccount: $transferCart.sourceAccount,
-                    transferMethod: output(useCase, \.output.predefineSelectedTransferMethod),
-                    transferCategory: output(useCase, \.output.transferCategory),
+                    transferMethod: useCase.binding(\.output.predefineSelectedTransferMethod),
+                    transferCategory: useCase.binding(\.output.transferCategory),
                     predefineTransferPurpose: .constant(Option()),
                     editTransferTarget: .constant(TransferTarget()),
-                    additionalInfo: output(useCase, \.output.additionalInfo),
-                    transferMethods: output(useCase, \.output.transferMethods),
+                    additionalInfo: useCase.binding(\.output.additionalInfo),
+                    transferMethods: useCase.binding(\.output.transferMethods),
                     thematic: useCase.output.thematic
                 )
             )
@@ -257,10 +241,10 @@ struct TransferLandingCoordinator: View {
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
                     sourceCoordinatorName: backTarget,
                     transferCart: $transferCart,
-                    recipientAccount: output(useCase, \.output.recipientAccount),
+                    recipientAccount: useCase.binding(\.output.recipientAccount),
                     recipientProfile: .constant(TransactionActorProfile()),
-                    transferCategory: output(useCase, \.output.transferCategory),
-                    transferMethod: output(useCase, \.output.predefineSelectedTransferMethod),
+                    transferCategory: useCase.binding(\.output.transferCategory),
+                    transferMethod: useCase.binding(\.output.predefineSelectedTransferMethod),
                     transferSpec: .constant(TransferSpec()),
                     predefineTransferPurpose: .constant(Option()),
                     backButtonAnalytic: .constant(
@@ -308,10 +292,10 @@ struct TransferLandingCoordinator: View {
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
                     sourceCoordinatorName: backTarget,
                     transferCart: $transferCart,
-                    recipientAccount: output(useCase, \.output.recipientAccount),
+                    recipientAccount: useCase.binding(\.output.recipientAccount),
                     recipientProfile: .constant(TransactionActorProfile()),
-                    transferCategory: output(useCase, \.output.transferCategory),
-                    transferMethod: output(useCase, \.output.predefineSelectedTransferMethod),
+                    transferCategory: useCase.binding(\.output.transferCategory),
+                    transferMethod: useCase.binding(\.output.predefineSelectedTransferMethod),
                     predefineTransferPurpose: .constant(Option()),
                     isUsingValidateValasCutOffTime: .constant(true),
                     thematic: useCase.output.thematic
@@ -325,9 +309,9 @@ struct TransferLandingCoordinator: View {
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
                     sourceCoordinatorName: backTarget,
                     transferCart: $transferCart,
-                    bank: output(useCase, \.output.bank),
-                    transferCategory: output(useCase, \.output.transferCategory),
-                    transferMethod: output(useCase, \.output.predefineSelectedTransferMethod)
+                    bank: useCase.binding(\.output.bank),
+                    transferCategory: useCase.binding(\.output.transferCategory),
+                    transferMethod: useCase.binding(\.output.predefineSelectedTransferMethod)
                 )
             )
         },
@@ -338,8 +322,8 @@ struct TransferLandingCoordinator: View {
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
                     sourceCoordinatorName: backTarget,
                     transferCart: $transferCart,
-                    transferCategory: output(useCase, \.output.transferCategory),
-                    transferMethod: output(useCase, \.output.predefineSelectedTransferMethod)
+                    transferCategory: useCase.binding(\.output.transferCategory),
+                    transferMethod: useCase.binding(\.output.predefineSelectedTransferMethod)
                 )
             )
         },
@@ -350,11 +334,11 @@ struct TransferLandingCoordinator: View {
                     selectionCoordinatorName: $activeDestinationCoordinatorName,
                     sourceCoordinatorName: backTarget,
                     transferCart: $transferCart,
-                    bank: output(useCase, \.output.bank),
-                    transferCategory: output(useCase, \.output.transferCategory),
-                    transferMethod: output(useCase, \.output.predefineSelectedTransferMethod),
-                    recipientAccount: output(useCase, \.output.recipientAccount),
-                    additionalInfo: output(useCase, \.output.additionalInfo)
+                    bank: useCase.binding(\.output.bank),
+                    transferCategory: useCase.binding(\.output.transferCategory),
+                    transferMethod: useCase.binding(\.output.predefineSelectedTransferMethod),
+                    recipientAccount: useCase.binding(\.output.recipientAccount),
+                    additionalInfo: useCase.binding(\.output.additionalInfo)
                 )
             )
         }

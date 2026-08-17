@@ -15,6 +15,7 @@ Sources/Debug/LifecycleProbe.swift         probe opt-in per class
 Sources/Debug/LifecycleTracker.swift       counter + checkpoint
 Sources/Debug/RenderCounter.swift          penghitung evaluasi body (sementara)
 Sources/Navigation/LazyNavigationLink.swift  destination yang ditunda
+Sources/Support/PropertyBindable.swift      useCase.binding(\.output.x)
 Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
 Examples/DetailCardInfo/                   layar daun
 Examples/TransferLanding/                  layar berlist dengan banyak tujuan

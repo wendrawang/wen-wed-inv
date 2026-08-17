@@ -79,6 +79,10 @@ class UseCase {
     }
 }
 
+/// Memberi seluruh UseCase kemampuan `useCase.binding(\.output.x)`.
+/// Lihat Sources/Support/PropertyBindable.swift.
+extension UseCase: PropertyBindable {}
+
 extension UseCase {
     enum State {
         case active
