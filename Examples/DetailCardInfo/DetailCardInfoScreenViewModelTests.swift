@@ -4,6 +4,20 @@ import XCTest
 /// Salin bentuk ini saat memigrasi layar lain.
 final class DetailCardInfoScreenViewModelTests: XCTestCase {
 
+    /// Menangkap retain cycle yang dibuat oleh `ScreenContentViewModel.init()`.
+    ///
+    /// Tidak ada persiapan sama sekali — hanya membuat objeknya. Kalau test ini
+    /// merah, lingkarannya terbentuk di `init()` base class dan berlaku untuk
+    /// **setiap layar** di aplikasi, bukan hanya layar ini. Lihat
+    /// docs/BASE_VIEWMODEL_FINDINGS.md temuan 1.
+    ///
+    /// Jalankan ini lebih dulu daripada test lain di file ini.
+    func testScreenViewModelIsReleasedAfterInit() {
+        let sut = DetailCardInfoScreenViewModel()
+
+        trackForMemoryLeaks(sut)
+    }
+
     /// Menangkap retain cycle antara ViewModel dan UseCase.
     ///
     /// Test ini gagal kalau `setUseCase` kembali memakai referensi method

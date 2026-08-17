@@ -262,6 +262,24 @@ saling menahan selamanya.
 useCase.callback.onFetchSucceed = { [weak self] in self?.setupView() }
 ```
 
+Bentuk yang paling sering lolos adalah **referensi method tanpa tanda kurung**,
+karena ia tidak terlihat seperti closure:
+
+```swift
+// Semua baris ini menangkap self secara kuat
+primitiveImagePickerViewModel.didChange = receiveImageFromPicker
+primitiveAddContactFormViewModel.onCanceled = dismissBottomSheet
+bottomSheetWebViewModel.didWebViewHeightChanged = setupBottomSheetMaxHeight
+messageComposerViewModel.completion = didReceiveMessageComposeResult
+useCase.callback.onFetchSucceed = setupView
+```
+
+Aturan yang mudah dicek saat review: **kalau ruas kanan sebuah assignment
+adalah nama method milik `self`, itu retain cycle** — kecuali objek di ruas
+kiri terbukti tidak dimiliki `self`. Lima contoh di atas semuanya milik `self`.
+Empat yang pertama ada di base class dan berlaku untuk semua layar; lihat
+[BASE_VIEWMODEL_FINDINGS.md](BASE_VIEWMODEL_FINDINGS.md).
+
 Di coordinator, tangkap **Binding sebagai nilai**, bukan struct View-nya:
 
 ```swift
