@@ -29,6 +29,7 @@ dan skenario background/foreground, notifikasi, serta snackbar berjalan aman.
 | Temuan | Catatan |
 |---|---|
 | `Screen` membuang satu `ScreenContentViewModel` lengkap per konstruksi | Nilai default `@ObservedObject` selalu ditimpa oleh `content.viewModel`. Objek yang dibuang membawa 20-an `@Published` dan dua pendaftaran `NotificationCenter`. Perbaikannya di [`Examples/Base/Screen.swift`](../Examples/Base/Screen.swift); cara mengukurnya di bawah |
+| `LazyNavigationLink` menahan layar tujuan selamanya | Cache-nya berupa `lazy var` yang tidak bisa dikosongkan, dipegang `@State` di dalam tautan — dan tautannya ada di body layar **induk** selama induknya hidup. Untuk flow dari root, DEINIT tidak pernah terjadi. Ditutup dengan melepas cache saat selection tautannya lepas dari tag-nya. Verifikasinya: masuk–kembali–masuk tiga kali, `INIT` dan `DEINIT` harus berpasangan |
 
 ### Cara memverifikasi perbaikan `Screen`
 

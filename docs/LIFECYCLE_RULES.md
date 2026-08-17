@@ -117,10 +117,34 @@ dan hanya satu yang benar-benar bug:
 |---|---|---|
 | Deinit saat pop | Sehat | — |
 | Deinit tertunda: baru lepas saat naik lebih tinggi, atau saat layar yang sama dibuka lagi | Pelepasan tertunda, bukan kebocoran. Batas atasnya adalah jalur terdalam yang pernah dikunjungi | Ukur dampaknya di Memory Report. Tangani kalau layarnya berat |
-| Tidak pernah deinit, bahkan setelah kembali ke root | Retain cycle | Perbaiki. Seharusnya tertangkap Lapis 1 |
+| Tidak pernah deinit, bahkan setelah kembali ke root | Retain cycle **atau** layarnya di-cache — lihat di bawah | Bedakan dulu, jangan langsung cari `weak` yang lupa |
 
 Pembedaan ini penting: menghabiskan waktu mengejar pola kedua seperti mengejar
 bug padahal ia perilaku wajar `NavigationView` akan membuang banyak waktu.
+
+### Kalau yang tercatat hanya INIT, DEINIT tidak pernah
+
+Ada dua sebab yang gejalanya sama persis di log, tetapi penanganannya
+berlawanan. Bedakan dulu dengan satu percobaan: **masuk ke layar itu, kembali,
+masuk lagi, tiga kali.**
+
+| Yang terlihat di log | Artinya |
+|---|---|
+| `INIT` hanya **satu kali** untuk tiga kali masuk | Objeknya tidak dibangun ulang — ada yang men-cache layarnya. Bukan cycle. Memorinya berbatas satu instance, tetapi state layarnya ikut basi: scroll, kata kunci, dan isi list masih yang lama saat masuk kembali |
+| `INIT` **tiga kali**, `DEINIT` nol | Objeknya menumpuk. Ini retain cycle, dan seharusnya tertangkap Lapis 1 |
+
+Penanda tambahan untuk yang pertama, tanpa melihat log sama sekali: scroll ke
+bawah, tekan back, masuk lagi. Kalau posisi scroll dan hasil pencariannya masih
+persis seperti sebelum keluar, layarnya memang di-cache.
+
+Satu sumber cache seperti itu pernah ada di template ini: `LazyNavigationLink`
+menyimpan hasil build destination di `lazy var` yang tidak bisa dikosongkan
+lagi. Struct layar tujuan memegang ViewModel-nya lewat `@ObservedObject`, dan
+storage-nya dipegang `@State` di dalam tautan — sedangkan tautannya ada di body
+layar **induk** selama layar induk hidup. Jadi umur ViewModel tujuan mengikuti
+umur layar induk, dan untuk flow yang berangkat dari root, itu berarti tidak
+pernah dilepas. Sudah ditutup: cache-nya dilepas begitu selection tautannya
+tidak lagi menunjuk ke sana.
 
 ---
 
