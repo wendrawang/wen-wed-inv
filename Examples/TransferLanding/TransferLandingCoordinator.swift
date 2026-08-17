@@ -2,16 +2,24 @@ import SwiftUI
 
 /// Coordinator Transfer Landing.
 ///
-/// **Bentuknya sengaja dibiarkan persis seperti aslinya.** Satu-satunya
-/// perubahan ada di deklarasi `viewModel`; sisanya — `navigationLinks`, `body`,
-/// `createViewModel()`, `createUseCase()`, dan seluruh perutean — tidak
-/// disentuh sama sekali.
+/// **BELUM DIMIGRASI — bentuknya sengaja dibiarkan persis seperti aslinya.**
 ///
-/// Alasannya dua. Struktur navigasi di sini terikat pada
-/// `.id(destinationCoordinatorName)`, yang ternyata bukan tambalan melainkan
-/// bagian yang membuat push-nya bekerja — lihat catatan di bawah file. Dan
-/// perbaikan yang benar-benar berdampak untuk layar ini semuanya ada di
-/// ViewModel dan UseCase, bukan di sini.
+/// Ini bukan gaya kedua yang boleh dipilih. Bentuk tujuannya sama dengan
+/// `DetailDebitCardInfoCoordinator`: tanpa `viewModel` dan `useCase` sebagai
+/// property, semuanya dibangun di dalam `createDestination()`. Layar ini belum
+/// bisa ke sana, dan syaratnya jelas — lihat "Satu pola, dua tahap" di
+/// docs/SCREEN_PATTERN.md.
+///
+/// Ringkasnya: sebuah coordinator baru bisa memakai bentuk baru kalau
+/// **seluruh coordinator tujuannya sudah memakai `LazyNavigationLink`**. Layar
+/// ini punya sembilan tujuan dan belum satu pun yang dimigrasi, jadi ia berada
+/// di paling akhir antrean. Detail Card Info bisa duluan karena ia daun —
+/// tidak punya tujuan sama sekali.
+///
+/// Selama belum bisa, bentuk file dibiarkan utuh dan yang dikerjakan hanya
+/// perbaikan di dalam badan method — semuanya ada di ViewModel dan UseCase.
+/// Satu-satunya perubahan di file ini adalah `private let viewModel` menjadi
+/// `@State`, menyamakannya dengan `useCase` yang memang sudah `@State`.
 struct TransferLandingCoordinator: View {
     @Binding var selectionCoordinatorName: String?
     @Binding var sourceCoordinatorName: String?

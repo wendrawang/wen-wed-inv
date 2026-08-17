@@ -162,9 +162,75 @@ di siklus layar.
 
 ---
 
+## Satu pola, dua tahap
+
+`Examples/DetailCardInfo` dan `Examples/TransferLanding` terlihat berbeda, dan
+itu **bukan dua gaya yang boleh dipilih**. Keduanya menuju bentuk yang sama;
+yang satu sudah sampai, yang satu belum bisa.
+
+| | DetailCardInfo | TransferLanding |
+|---|---|---|
+| ViewModel & UseCase | dibangun di `createDestination()` | masih `@State` di coordinator |
+| Tautan | `LazyNavigationLink` | `NavigationLink` + `.id()` |
+| Status | **sudah dimigrasi** | **belum bisa dimigrasi** |
+
+### Syaratnya: semua anaknya sudah dimigrasi lebih dulu
+
+Sebuah coordinator baru bisa memakai bentuk baru kalau **seluruh coordinator
+tujuannya sudah memakai `LazyNavigationLink`.** Alasannya bukan selera, tapi
+perilaku `NavigationView` di iOS 13–14.
+
+Ada dua cara membuat tujuan tidak dibangun sebelum waktunya:
+
+**Membangun bersyarat** — hanya membangun tautan untuk tujuan yang cocok
+dengan `destinationCoordinatorName`. Ini yang dipakai Transfer Landing. Murah,
+tapi punya akibat: saat nilainya berubah, tautan anak **muncul di pohon view
+dalam keadaan selection-nya sudah sama dengan tag-nya**, dan `NavigationView`
+tidak melakukan push untuk tautan seperti itu. Karena itu ia butuh `.id()`
+untuk memaksa subtree-nya dibangun ulang — dan `.id()` tidak bisa hidup
+bersama `LazyNavigationLink`, yang builder-nya hanya berjalan sekali lalu
+hasilnya dibekukan.
+
+**Membangun semua, menunda isinya** — seluruh coordinator tujuan selalu ada di
+pohon, tetapi masing-masing memakai `LazyNavigationLink` sehingga isinya baru
+dibangun saat benar-benar di-push. Tidak ada tautan yang disisipkan dalam
+keadaan sudah terpilih, jadi `.id()` tidak dibutuhkan sama sekali.
+
+Cara kedua yang jadi tujuan kita. Tapi ia hanya bermanfaat kalau anak-anaknya
+sudah lazy — kalau belum, menaruh sembilan coordinator sekaligus di pohon
+justru mengembalikan cascade yang kita hindari.
+
+### Karena itu: migrasi dari daun ke atas
+
+```
+TransferLanding                  ← paling akhir (9 anak)
+ └── TransferTransactionAmount   ← menyusul
+      └── …
+           └── layar tanpa tujuan  ← mulai dari sini
+```
+
+Layar tanpa coordinator tujuan bisa dimigrasi kapan saja — tidak ada
+prasyaratnya. Itu sebabnya Detail Card Info duluan: ia daun.
+
+Selama sebuah coordinator belum bisa dimigrasi, **biarkan bentuknya apa
+adanya.** Jangan menyetengahi. Yang tetap boleh dan wajib dikerjakan adalah
+perbaikan di dalam badan method — `[weak self]`, penerbitan yang digabung,
+`startFetchLoading()`, penjagaan nilai — karena semuanya tidak menyentuh
+struktur navigasi dan tidak menunggu siapa pun.
+
+Itulah persis isi perubahan di `Examples/TransferLanding`: bentuk file tidak
+berubah, hanya isinya.
+
+---
+
 ## Aturan
 
 ### 1. Coordinator tidak menyimpan ViewModel atau UseCase
+
+Berlaku untuk coordinator yang **sudah bisa dimigrasi**. Untuk yang belum,
+lihat bagian "Satu pola, dua tahap" di atas — dan sementara itu simpan
+keduanya sebagai `@State`, bukan `private let`, supaya setidaknya tidak
+dialokasikan ulang setiap render.
 
 Struct `View` di-init ulang setiap kali body induknya dievaluasi.
 `private let viewModel = ...` berarti objek baru pada setiap render, bukan
