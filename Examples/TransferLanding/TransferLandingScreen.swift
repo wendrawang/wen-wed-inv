@@ -132,16 +132,12 @@ struct TransferLandingScreen: ScreenContent {
         .disabled(!viewModel.isUserInteractionEnabled)
     }
 
-    /// `Group`, bukan `ZStack` berisi `AnyView`.
-    ///
-    /// Dua cabang `if #available` menghasilkan tipe berbeda, dan versi lama
-    /// menyamakannya dengan `AnyView`. `Group` melakukan hal yang sama lewat
-    /// `_ConditionalContent` tanpa menghapus structural identity, sehingga
-    /// SwiftUI tetap punya jalur diff yang murah.
     private func render() -> some View {
-        Group {
+        ZStack {
             if #available(iOS 14.0, *) {
-                renderScreen().ignoresSafeArea(.keyboard)
+                AnyView(
+                    renderScreen().ignoresSafeArea(.keyboard)
+                )
             } else {
                 renderScreen()
             }

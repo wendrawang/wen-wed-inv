@@ -2,22 +2,16 @@ import SwiftUI
 
 /// Coordinator Transfer Landing.
 ///
-/// **Struktur navigasinya sengaja dibiarkan seperti versi lama.** Berbeda
-/// dengan `DetailDebitCardInfoCoordinator`, layar ini tidak dipindah ke
-/// `LazyNavigationLink`. Alasannya ada di bagian bawah file ini — singkatnya,
-/// `.id(destinationCoordinatorName)` di sini **bukan tambalan**, melainkan
-/// bagian yang membuat navigasinya bekerja, dan ia tidak bisa hidup
-/// berdampingan dengan cache milik `LazyNavigationLink`.
+/// **Bentuknya sengaja dibiarkan persis seperti aslinya.** Satu-satunya
+/// perubahan ada di deklarasi `viewModel`; sisanya — `navigationLinks`, `body`,
+/// `createViewModel()`, `createUseCase()`, dan seluruh perutean — tidak
+/// disentuh sama sekali.
 ///
-/// Yang diperbaiki hanya bagian yang tidak menyentuh struktur navigasi:
-///
-/// 1. `viewModel` dipindah dari `private let` ke `@State`, supaya tidak
-///    dialokasikan ulang pada setiap init struct.
-/// 2. Kamus sembilan closure diganti `switch` di `NavigationLinkFactory` —
-///    perilakunya identik, hanya tanpa alokasi kamus dan sembilan konteks
-///    closure pada setiap evaluasi body.
-/// 3. Analitik tombol recipient baru dirakit di ViewModel saat aksinya
-///    dijalankan, bukan di sini saat ViewModel dibangun.
+/// Alasannya dua. Struktur navigasi di sini terikat pada
+/// `.id(destinationCoordinatorName)`, yang ternyata bukan tambalan melainkan
+/// bagian yang membuat push-nya bekerja — lihat catatan di bawah file. Dan
+/// perbaikan yang benar-benar berdampak untuk layar ini semuanya ada di
+/// ViewModel dan UseCase, bukan di sini.
 struct TransferLandingCoordinator: View {
     @Binding var selectionCoordinatorName: String?
     @Binding var sourceCoordinatorName: String?
@@ -26,17 +20,183 @@ struct TransferLandingCoordinator: View {
     @State private var destinationCoordinatorName: String?
     @State private var useCase = TransferLandingUseCase()
 
-    /// `@State`, bukan `private let`.
+    /// Satu-satunya perubahan di file ini: `private let` menjadi `@State`.
     ///
     /// Struct `View` di-init ulang setiap kali body induknya dievaluasi, jadi
-    /// `private let viewModel = TransferLandingViewModel()` berarti ViewModel
-    /// baru pada setiap render. `@State` menyimpannya di luar struct sehingga
-    /// instance-nya bertahan.
+    /// `private let viewModel = TransferLandingViewModel()` menghasilkan
+    /// ViewModel baru pada setiap render — seluruh sub-ViewModel-nya kembali
+    /// kosong dan harus dikonfigurasi ulang. `@State` menyimpannya di luar
+    /// struct sehingga instance-nya bertahan.
     ///
-    /// Ini bukan bentuk terbaik — ekspresi defaultnya tetap dievaluasi lalu
-    /// dibuang setiap init — tetapi ia bentuk terbaik yang bisa dipakai tanpa
-    /// mengubah struktur navigasi, dan iOS 13 tidak punya `@StateObject`.
+    /// Bentuknya sama persis dengan `useCase` di baris atas, yang memang sudah
+    /// `@State` sejak awal.
     @State private var viewModel = TransferLandingViewModel()
+
+    private var navigationLinks: [String: TypeAliases.NavigationHandler] {[
+        TransferTransactionAmountCoordinator.named: {
+            AnyView(
+                TransferTransactionAmountCoordinator(
+                    selectionCoordinatorName: $destinationCoordinatorName,
+                    sourceCoordinatorName: sourceCoordinatorName == nil
+                        ? $selectionCoordinatorName.didSet { _ in
+                            destinationCoordinatorName = nil
+                        }
+                        : $sourceCoordinatorName,
+                    transferCart: $transferCart,
+                    recipientAccount: $useCase.output.recipientAccount,
+                    recipientProfile: .constant(TransactionActorProfile()),
+                    sourceAccount: $transferCart.sourceAccount,
+                    transferMethod: $useCase.output.predefineSelectedTransferMethod,
+                    transferCategory: $useCase.output.transferCategory,
+                    predefineTransferPurpose: .constant(Option()),
+                    editTransferTarget: .constant(TransferTarget()),
+                    additionalInfo: $useCase.output.additionalInfo,
+                    transferMethods: $useCase.output.transferMethods,
+                    thematic: useCase.output.thematic
+                )
+            )
+        },
+
+        TransferDebitAccountSelectionCoordinator.named: {
+            AnyView(
+                TransferDebitAccountSelectionCoordinator(
+                    selectionCoordinatorName: $destinationCoordinatorName,
+                    sourceCoordinatorName: sourceCoordinatorName == nil
+                        ? $selectionCoordinatorName.didSet { _ in
+                            destinationCoordinatorName = nil
+                        }
+                        : $sourceCoordinatorName,
+                    transferCart: $transferCart,
+                    recipientAccount: $useCase.output.recipientAccount,
+                    recipientProfile: .constant(TransactionActorProfile()),
+                    transferCategory: $useCase.output.transferCategory,
+                    transferMethod: $useCase.output.predefineSelectedTransferMethod,
+                    transferSpec: .constant(TransferSpec()),
+                    predefineTransferPurpose: .constant(Option()),
+                    backButtonAnalytic: .constant(
+                        AnalyticManager.instance.analytics.hitBackOnSourceAccountPrivateTransfer
+                    ),
+                    isUsingValidateValasCutOffTime: .constant(true),
+                    thematic: useCase.output.thematic
+                )
+            )
+        },
+
+        DomesticTransferNewRecipientCoordinator.named: {
+            AnyView(
+                DomesticTransferNewRecipientCoordinator(
+                    selectionCoordinatorName: $destinationCoordinatorName,
+                    sourceCoordinatorName: sourceCoordinatorName == nil
+                        ? $selectionCoordinatorName.didSet { _ in
+                            destinationCoordinatorName = nil
+                        }
+                        : $sourceCoordinatorName,
+                    transferCart: $transferCart
+                )
+            )
+        },
+
+        ForeignTransferNewRecipientCoordinator.named: {
+            AnyView(
+                ForeignTransferNewRecipientCoordinator(
+                    selectionCoordinatorName: $destinationCoordinatorName,
+                    sourceCoordinatorName: sourceCoordinatorName == nil
+                        ? $selectionCoordinatorName.didSet { _ in
+                            destinationCoordinatorName = nil
+                        }
+                        : $sourceCoordinatorName,
+                    transferCart: $transferCart
+                )
+            )
+        },
+
+        ProxyTransferNewRecipientCoordinator.named: {
+            AnyView(
+                ProxyTransferNewRecipientCoordinator(
+                    selectionCoordinatorName: $destinationCoordinatorName,
+                    sourceCoordinatorName: sourceCoordinatorName == nil
+                        ? $selectionCoordinatorName.didSet { _ in
+                            destinationCoordinatorName = nil
+                        }
+                        : $sourceCoordinatorName,
+                    transferCart: $transferCart
+                )
+            )
+        },
+
+        TransferCurrencySelectionCoordinator.named: {
+            AnyView(
+                TransferCurrencySelectionCoordinator(
+                    selectionCoordinatorName: $destinationCoordinatorName,
+                    sourceCoordinatorName: sourceCoordinatorName == nil
+                        ? $selectionCoordinatorName.didSet { _ in
+                            destinationCoordinatorName = nil
+                        }
+                        : $sourceCoordinatorName,
+                    transferCart: $transferCart,
+                    recipientAccount: $useCase.output.recipientAccount,
+                    recipientProfile: .constant(TransactionActorProfile()),
+                    transferCategory: $useCase.output.transferCategory,
+                    transferMethod: $useCase.output.predefineSelectedTransferMethod,
+                    predefineTransferPurpose: .constant(Option()),
+                    isUsingValidateValasCutOffTime: .constant(true),
+                    thematic: useCase.output.thematic
+                )
+            )
+        },
+
+        BankSummaryCoordinator.named: {
+            AnyView(
+                BankSummaryCoordinator(
+                    selectionCoordinatorName: $destinationCoordinatorName,
+                    sourceCoordinatorName: sourceCoordinatorName == nil
+                        ? $selectionCoordinatorName.didSet { _ in
+                            destinationCoordinatorName = nil
+                        }
+                        : $sourceCoordinatorName,
+                    transferCart: $transferCart,
+                    bank: $useCase.output.bank,
+                    transferCategory: $useCase.output.transferCategory,
+                    transferMethod: $useCase.output.predefineSelectedTransferMethod
+                )
+            )
+        },
+
+        TransferCountrySelectionCoordinator.named: {
+            AnyView(
+                TransferCountrySelectionCoordinator(
+                    selectionCoordinatorName: $destinationCoordinatorName,
+                    sourceCoordinatorName: sourceCoordinatorName == nil
+                        ? $selectionCoordinatorName.didSet { _ in
+                            destinationCoordinatorName = nil
+                        }
+                        : $sourceCoordinatorName,
+                    transferCart: $transferCart,
+                    transferCategory: $useCase.output.transferCategory,
+                    transferMethod: $useCase.output.predefineSelectedTransferMethod
+                )
+            )
+        },
+
+        TelegraphicRecipientFormCoordinator.named: {
+            AnyView(
+                TelegraphicRecipientFormCoordinator(
+                    selectionCoordinatorName: $destinationCoordinatorName,
+                    sourceCoordinatorName: sourceCoordinatorName == nil
+                        ? $selectionCoordinatorName.didSet { _ in
+                            destinationCoordinatorName = nil
+                        }
+                        : $sourceCoordinatorName,
+                    transferCart: $transferCart,
+                    bank: $useCase.output.bank,
+                    transferCategory: $useCase.output.transferCategory,
+                    transferMethod: $useCase.output.predefineSelectedTransferMethod,
+                    recipientAccount: $useCase.output.recipientAccount,
+                    additionalInfo: $useCase.output.additionalInfo
+                )
+            )
+        }
+    ]}
 
     var predefineTransferCategory: TransferCategory = .unspecified
 
@@ -58,8 +218,6 @@ struct TransferLandingCoordinator: View {
         .invisible()
     }
 
-    // MARK: - Pembangunan layar
-
     private func createViewModel() -> TransferLandingViewModel {
         if selectionCoordinatorName != TransferLandingCoordinator.named {
             viewModel.flushData()
@@ -69,22 +227,27 @@ struct TransferLandingCoordinator: View {
 
         viewModel.onCreateNavigationLinks = createNavigationLinks
 
-        viewModel.navigationBarViewModel.title = navigationTitle()
+        viewModel.navigationBarViewModel.title = transferCart.targets.isEmpty
+            ? R.string.navigationTitle.transferRecipient.text
+            : String(
+                format: R.string.navigationTitle.transferRecipientMultiple.text,
+                transferCart.targets.count.nextNumber.ordinalText
+            )
 
-        // Coordinator hanya menentukan tujuan; kategori yang sedang terpilih
-        // datang dari ViewModel sebagai argumen.
-        //
-        // Versi lama merakit parameter analitiknya di sini, pada saat ViewModel
-        // dibangun — yaitu sebelum `loadData()` pernah berjalan — sehingga
-        // kategori yang terkirim selalu `.unspecified`. Sekarang perakitannya
-        // ada di ViewModel, di titik aksinya benar-benar dijalankan.
-        viewModel.onStartNewRecipient = { transferCategory in
-            destinationCoordinatorName = transferCategory
-                .newRecipientDestinationCoordinatorName
-        }
+        viewModel.newRecipientMenuItemViewModel.action = startNewRecipientCoordinator
+
+        viewModel.newRecipientMenuItemViewModel.analytic = AnalyticManager
+            .instance
+            .analytics
+            .hitTransferLandingNewRecipient
+
+        viewModel.newRecipientMenuItemViewModel.analytic.parameters = [
+            .categoryTitle: viewModel
+                .selectedTransferCategory
+                .rawValue
+        ]
 
         viewModel.setUseCase(createUseCase())
-
         return viewModel
     }
 
@@ -93,33 +256,14 @@ struct TransferLandingCoordinator: View {
         useCase.input.transferCart = transferCart
         useCase.input.transferCategory = predefineTransferCategory
         useCase.callback.onSubmissionSucceed = startDestinationCoordinator
-
         return useCase
     }
 
-    private func navigationTitle() -> String {
-        guard !transferCart.targets.isEmpty else {
-            return R.string.navigationTitle.transferRecipient.text
-        }
-
-        return String(
-            format: R.string.navigationTitle.transferRecipientMultiple.text,
-            transferCart.targets.count.nextNumber.ordinalText
-        )
+    private func startNewRecipientCoordinator() {
+        destinationCoordinatorName = viewModel
+            .selectedTransferCategory
+            .newRecipientDestinationCoordinatorName
     }
-
-    private func createNavigationLinks() -> AnyView {
-        NavigationLinkFactory(
-            selectionCoordinatorName: $selectionCoordinatorName,
-            sourceCoordinatorName: $sourceCoordinatorName,
-            destinationCoordinatorName: $destinationCoordinatorName,
-            transferCart: $transferCart,
-            useCase: useCase
-        )
-        .make()
-    }
-
-    // MARK: - Perutean
 
     private func startDestinationCoordinator() {
         if useCase.output.transferCategory == .privateAccount {
@@ -136,9 +280,12 @@ struct TransferLandingCoordinator: View {
     }
 
     private func startPrivateAccountJourney() {
-        destinationCoordinatorName = transferCart.targets.isEmpty
-            ? TransferDebitAccountSelectionCoordinator.named
-            : TransferTransactionAmountCoordinator.named
+        if transferCart.targets.isEmpty {
+            destinationCoordinatorName = TransferDebitAccountSelectionCoordinator.named
+            return
+        }
+
+        destinationCoordinatorName = TransferTransactionAmountCoordinator.named
     }
 
     private func startValasJourney() {
@@ -159,32 +306,39 @@ struct TransferLandingCoordinator: View {
 
         destinationCoordinatorName = BankSummaryCoordinator.named
     }
+
+    private func createNavigationLinks() -> AnyView {
+        if let destination = destinationCoordinatorName,
+           let navigationLink = navigationLinks[destination] {
+            return navigationLink()
+        }
+
+        return DefaultValues.emptyAnyView
+    }
 }
 
-// MARK: - Kenapa `.id()` tidak dihapus
+// MARK: - Kenapa file ini nyaris tidak diubah
 //
-// Saya sempat menghapusnya karena mengira ia tambalan untuk `AnyView` yang
-// menghapus structural identity. Itu keliru, dan menghapusnya membuat navigasi
-// ke layar berikutnya berhenti bekerja sama sekali.
+// Saya sempat mengganti struktur navigasinya — `LazyNavigationLink`, `.id()`
+// dihapus, kamus `navigationLinks` dipindah ke sebuah tipe baru. Ketiganya
+// dikembalikan.
 //
-// Mekanismenya begini. `createNavigationLinks()` hanya membangun tautan untuk
-// tujuan yang cocok dengan `destinationCoordinatorName`, jadi saat nilainya
-// masih nil tidak ada satu pun tautan anak di dalam pohon view. Ketika pengguna
-// menekan sesuatu dan nilainya berubah, tautan anak baru **muncul dengan
-// selection-nya sudah sama dengan tag-nya**. `NavigationView` di iOS 13–14
-// tidak melakukan push untuk tautan yang disisipkan dalam keadaan sudah
-// terpilih — ia perlu melihat perpindahan dari tidak-terpilih ke terpilih.
+// `.id(destinationCoordinatorName)` bukan tambalan. `createNavigationLinks()`
+// hanya membangun tautan untuk tujuan yang cocok, jadi saat nilainya masih nil
+// tidak ada satu pun tautan anak di pohon view. Ketika nilainya berubah, tautan
+// anak muncul dengan selection-nya sudah sama dengan tag-nya — dan
+// `NavigationView` di iOS 13-14 tidak melakukan push untuk tautan yang
+// disisipkan dalam keadaan sudah terpilih. `.id()` membangun ulang subtree-nya
+// sebagai identitas baru sehingga push-nya terjadi. Menghapusnya mematikan
+// navigasi.
 //
-// `.id(destinationCoordinatorName)` membuat SwiftUI membangun ulang subtree-nya
-// sebagai identitas baru, sehingga tautan anak itu terpasang di pohon yang
-// benar-benar baru dan push-nya terjadi. Mahal, tetapi memang itu yang
-// menggerakkan navigasinya.
+// `.id()` juga tidak bisa hidup bersama `LazyNavigationLink`: builder lazy
+// hanya berjalan sekali lalu hasilnya disimpan, jadi nilai `.id()` beku pada
+// pembacaan pertama.
 //
-// Dan `.id()` tidak bisa dipakai bersama `LazyNavigationLink`: builder-nya
-// hanya berjalan sekali lalu hasilnya disimpan, jadi nilai `.id()` akan beku
-// pada pembacaan pertama — yaitu nil — dan tidak pernah berubah lagi.
-//
-// Jadi keduanya satu paket. Melepas layar ini dari `.id()` berarti mengganti
-// cara tautan anak disisipkan — misalnya menyisipkan tautannya lebih dulu lalu
-// menyalakan selection-nya pada putaran runloop berikutnya. Itu perubahan yang
-// harus dikerjakan sambil menjalankan aplikasinya, bukan ditebak dari kode.
+// Kamus `navigationLinks` memang dibangun ulang setiap kali diakses — sembilan
+// closure dan satu Dictionary per evaluasi body. Itu biaya nyata, tetapi kecil
+// dibanding yang sudah diperbaiki di ViewModel, dan menggantinya berarti
+// memperkenalkan bentuk yang tidak dipakai di halaman lain. Kalau kelak ingin
+// dikejar, `switch` bisa menggantikannya tanpa mengubah perilaku — tetapi
+// sebaiknya diputuskan sebagai konvensi tim, bukan diselipkan di satu layar.

@@ -1,5 +1,8 @@
 import Foundation
 
+/// Bentuknya sama persis dengan aslinya. Yang berubah hanya dua baris
+/// `callback.onStartFetchLoading()` menjadi `startFetchLoading()`, ditambah
+/// probe lifecycle.
 class TransferLandingUseCase: TransferRecipientUseCase {
     private(set) var repository = Repository()
     var input = Input()
@@ -16,34 +19,24 @@ class TransferLandingUseCase: TransferRecipientUseCase {
         #endif
     }
 
-    /// Sinkron — hanya memindahkan `input` ke `repository`, tanpa jaringan.
-    /// Karena itu ia tidak menyalakan callback apa pun; ViewModel memanggil
-    /// `setupView()` sendiri setelah ini. Jalur yang benar-benar mengambil data
-    /// ada di `loadData(pageNumber:searchKeyword:)`.
     override func loadData() {
         repository.transferCategory = input.transferCategory
         repository.transferCart = input.transferCart
-
-        guard repository.transferCategory == .unspecified else { return }
-
-        repository.transferCategory = input
-            .transferCart
-            .availableNewTransferCategories
-            .first ?? .unspecified
+        if repository.transferCategory == .unspecified {
+            repository.transferCategory = input
+                .transferCart
+                .availableNewTransferCategories
+                .first ?? .unspecified
+        }
     }
 
     override func loadData(pageNumber: Int, searchKeyword: String) {
-        // `renewIdentifier()` di sini memang disengaja: saat kata kunci berubah
-        // atau halaman baru diminta, hasil permintaan sebelumnya harus dibuang.
-        // Yang tidak boleh adalah coordinator ikut memanggilnya pada setiap
-        // evaluasi body — itu membuang permintaan yang sedang berjalan tanpa
-        // jejak. Lihat docs/SCREEN_PATTERN.md aturan 11.
         renewIdentifier()
 
         // `startFetchLoading()`, bukan `callback.onStartFetchLoading()`.
         // Helper-nya membungkus pemanggilan dalam DispatchQueue.main.async.
-        // Di layar ini jalurnya melewati jaringan, jadi menulis `@Published`
-        // dari thread selain main bukan lagi risiko teoretis.
+        // Jalur di bawah ini melewati jaringan, jadi menulis `@Published` dari
+        // thread selain main bukan risiko teoretis.
         startFetchLoading()
 
         RecipientService(identifier).transferList(
@@ -67,6 +60,49 @@ class TransferLandingUseCase: TransferRecipientUseCase {
         output = Output()
     }
 
+    private func didInquiryRecipientsSucceed(
+        _ response: ResponseRecipientList,
+        _ requestorId: UUID
+    ) {
+        startFetchSucceed(requestorId)
+    }
+
+    private func didInquiryDomesticRecipientsSucceed(
+        _ response: ResponseRecipientList,
+        _ requestorId: UUID
+    ) {
+        if requestorId != identifier {
+            return
+        }
+
+        repository.responseRecipientDomesticTransfers.appendIfPageNotExist(response)
+        startFetchSucceed(requestorId)
+    }
+
+    private func didInquiryForeignRecipientsSucceed(
+        _ response: ResponseRecipientList,
+        _ requestorId: UUID
+    ) {
+        if requestorId != identifier {
+            return
+        }
+
+        repository.responseRecipientForeignTransfers.appendIfPageNotExist(response)
+        startFetchSucceed(requestorId)
+    }
+
+    private func didInquiryProxyRecipientsSucceed(
+        _ response: ResponseRecipientList,
+        _ requestorId: UUID
+    ) {
+        if requestorId != identifier {
+            return
+        }
+
+        repository.responseRecipientProxyTransfers.appendIfPageNotExist(response)
+        startFetchSucceed(requestorId)
+    }
+
     func resetRecipientList() {
         repository.responseRecipientDomesticTransfers = [ResponseRecipientList()]
         repository.responseRecipientForeignTransfers = [ResponseRecipientList()]
@@ -84,63 +120,20 @@ class TransferLandingUseCase: TransferRecipientUseCase {
             code: transferCategory.serviceCode.rawValue
         )
 
-        let sourceCurrency = input.transferCart.sourceAccount.firstCurrency
-
-        let needsCutOffValidation = output.transferCategory == .privateAccount
-            && !sourceCurrency.isEmpty
-            && bankAccount.firstCurrency.code != sourceCurrency.code
-
-        guard needsCutOffValidation else {
-            startSubmissionSucceed(identifier)
+        if output.transferCategory == .privateAccount
+            && !input.transferCart.sourceAccount.firstCurrency.isEmpty
+            && bankAccount.firstCurrency.code != input.transferCart.sourceAccount.firstCurrency.code {
+            startFetchLoading()
+            validateValasCutOffTime()
             return
         }
 
-        startFetchLoading()
-        validateValasCutOffTime()
+        startSubmissionSucceed(identifier)
     }
 
     func setSelectedTransferCategory(_ category: TransferCategory) {
         repository.transferCategory = category
         output.transferCategory = category
-    }
-
-    // MARK: - Penanganan respons
-
-    private func didInquiryRecipientsSucceed(
-        _ response: ResponseRecipientList,
-        _ requestorId: UUID
-    ) {
-        startFetchSucceed(requestorId)
-    }
-
-    private func didInquiryDomesticRecipientsSucceed(
-        _ response: ResponseRecipientList,
-        _ requestorId: UUID
-    ) {
-        guard requestorId == identifier else { return }
-
-        repository.responseRecipientDomesticTransfers.appendIfPageNotExist(response)
-        startFetchSucceed(requestorId)
-    }
-
-    private func didInquiryForeignRecipientsSucceed(
-        _ response: ResponseRecipientList,
-        _ requestorId: UUID
-    ) {
-        guard requestorId == identifier else { return }
-
-        repository.responseRecipientForeignTransfers.appendIfPageNotExist(response)
-        startFetchSucceed(requestorId)
-    }
-
-    private func didInquiryProxyRecipientsSucceed(
-        _ response: ResponseRecipientList,
-        _ requestorId: UUID
-    ) {
-        guard requestorId == identifier else { return }
-
-        repository.responseRecipientProxyTransfers.appendIfPageNotExist(response)
-        startFetchSucceed(requestorId)
     }
 }
 

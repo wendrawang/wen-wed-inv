@@ -17,7 +17,7 @@ Sources/Debug/RenderCounter.swift          penghitung evaluasi body (sementara)
 Sources/Navigation/LazyNavigationLink.swift  destination yang ditunda
 Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
 Examples/DetailCardInfo/                   layar rujukan pendek, sudah diperbaiki
-Examples/TransferLanding/                  layar rujukan panjang berlist
+Examples/TransferLanding/                  layar panjang berlist, perbaikan minimal
 Examples/Base/UseCase.swift                penjagaan base yang berlaku global
 Examples/Base/Screen.swift                 tanpa ScreenContentViewModel terbuang
 docs/STATUS.md                             status semua temuan
