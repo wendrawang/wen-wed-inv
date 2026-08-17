@@ -24,7 +24,13 @@ class DetailCardInfoScreenUseCase: UseCase, UseCaseProtocol {
 
     override func loadData() {
         super.loadData()
-        callback.onStartFetchLoading()
+
+        // `startFetchLoading()`, bukan `callback.onStartFetchLoading()`.
+        // Helper-nya membungkus pemanggilan dalam DispatchQueue.main.async;
+        // memanggil callback langsung melewati jaminan itu dan menulis
+        // `@Published` dari thread mana pun `loadData()` kebetulan berjalan.
+        startFetchLoading()
+
         repository.bankCard = input.bankCard
         startFetchSucceed(identifier)
     }

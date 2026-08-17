@@ -30,16 +30,66 @@ state yang diamati saat SwiftUI sedang menghitung body adalah perilaku yang
 tidak terdefinisi; notifikasinya bisa hilang sehingga frame yang tampil
 memakai snapshot lama.
 
-**`renewIdentifier()` dipanggil pada setiap evaluasi body.** Kalau sebuah
-fetch masih berjalan, identifier-nya berganti dan hasil fetch itu dibuang
-tanpa suara — `onFetchSucceed` tidak pernah datang.
-
 **`private let viewModel` pada struct View.** Struct di-init ulang setiap
 render, jadi ViewModel beserta seluruh sub-ViewModel-nya kembali kosong, dan
 apakah ia sempat terisi lagi sebelum frame berikutnya adalah soal waktu.
 
-Ketiganya sensitif terhadap frekuensi render dan beban main thread. Itulah
+Keduanya sensitif terhadap frekuensi render dan beban main thread. Itulah
 kenapa hasilnya berbeda antar perangkat.
+
+### Kenapa kosongnya menetap, bukan berkedip
+
+Dua hal di atas menjelaskan layar yang terisi terlambat. Yang menjelaskan layar
+yang **tidak pernah** terisi ada di base `UseCase`:
+
+```swift
+func requestLoadData() {
+    if state == .inactive {
+        return          // diam, tanpa jejak
+    }
+    loadData()
+}
+```
+
+`state` bernilai `.inactive` saat dibuat, dan satu-satunya yang mengubahnya
+menjadi `.active` adalah `renewIdentifier()`. Sebuah UseCase yang belum pernah
+di-`renewIdentifier()` akan menolak memuat data **tanpa mengeluh sama sekali**.
+
+Ini bukan kasus teoretis, dan justru di sinilah cabang lama itu bermuara:
+
+```swift
+if selectionCoordinatorName != DetailDebitCardInfoCoordinator.named {
+    viewModel.flushData()
+    return DetailCardInfoScreenViewModel()   // useCase default → .inactive
+}
+```
+
+ViewModel default membawa `useCase` default, yang `state`-nya `.inactive`.
+Kalau ViewModel itu yang sampai ke layar, `loadData()`-nya no-op selamanya.
+Bukan terlambat — tidak akan pernah. Itulah beda antara kedip dan layar yang
+berdiri kosong sampai user keluar-masuk lagi.
+
+Perbaikannya ada dua sisi. Sisi layar: tidak ada lagi jalur yang mengirim
+ViewModel default. Sisi base: `requestLoadData()` diberi `assertionFailure`
+sehingga kegagalan senyap ini berbunyi di Debug — lihat
+[`Examples/Base/UseCase.swift`](../Examples/Base/UseCase.swift). Perubahan base
+itu berlaku untuk seluruh halaman sekaligus dan tidak mengubah perilaku
+Release, jadi aman dipasang lebih dulu.
+
+### Yang ternyata bukan penyebab di layar ini
+
+`renewIdentifier()` yang dipanggil pada setiap evaluasi body sempat saya duga
+ikut membuang hasil fetch yang sedang berjalan. Setelah melihat base-nya,
+dugaan itu **tidak berlaku untuk layar ini**: `startFetchSucceed(_:)`
+memeriksa identifier secara sinkron di awal, dan `loadData()` layar ini
+memanggilnya dengan identifier yang sama persis pada baris yang sama, jadi
+pemeriksaannya selalu lolos.
+
+Hazard-nya tetap nyata untuk UseCase yang **benar-benar asinkron** — di sana
+repository menangkap identifier saat request dikirim dan baru melapor setelah
+respons datang, sehingga `renewIdentifier()` yang jalan di sela-sela itu
+membuat respons dibuang diam-diam. Aturan 7 tetap berlaku; hanya bukan bagian
+dari cerita bug ini.
 
 ---
 
@@ -156,8 +206,22 @@ callback `onFetchSucceed` menjalankan `setupView()`. Jadikan `setupView()`
 
 ```swift
 viewModel.setUseCase(useCase)
-viewModel.loadData()   // repository terisi sebelum view pertama dirender
+viewModel.loadData()
 ```
+
+Perlu diketahui apa yang **tidak** dijamin di sini. `startFetchSucceed(_:)`
+mengirim `onFetchSucceed` lewat `DispatchQueue.main.async`, jadi `setupView()`
+belum berjalan saat builder selesai. Frame pertama tetap merender field kosong,
+dan frame berikutnya yang terisi — selisihnya satu frame, tidak terlihat mata.
+
+Satu frame itu sengaja tidak dikejar. Menghilangkannya berarti memanggil
+`setupView()` secara langsung dari jalur pembangunan, dan jalur kedua itulah
+yang dulu memungkinkan `setupView()` membaca repository kosong. Satu jalur yang
+konsisten lebih berharga daripada satu frame.
+
+Yang dijamin justru ini: `setupView()` **mustahil** membaca repository kosong,
+karena satu-satunya pemicunya adalah `onFetchSucceed`, dan `onFetchSucceed`
+hanya menyala dari dalam `loadData()` setelah repository terisi.
 
 ### 4. ViewModel selalu membaca `repository`, tidak pernah `input`
 
@@ -250,6 +314,34 @@ private static let monthAndYearFormatter: DateFormatter = {
 Untuk format yang harus mengikuti bahasa pengguna, pakai property instance
 supaya ia dibangun ulang setiap layar dibuka.
 
+### 10. UseCase tidak pernah menyentuh `callback` secara langsung
+
+Helper di `UseCaseProtocol` — `startFetchLoading()`, `stopLoading()`,
+`startFetchSucceed(_:)`, dan seterusnya — semuanya membungkus pemanggilan
+callback dalam `DispatchQueue.main.async`. Itu memang tujuannya: callback
+berujung pada penulisan `@Published`, dan `@Published` yang ditulis dari thread
+selain main adalah perilaku tidak terdefinisi.
+
+```swift
+// SALAH — melewati jaminan main thread
+callback.onStartFetchLoading()
+
+// BENAR
+startFetchLoading()
+```
+
+Selama `loadData()` kebetulan selalu dipanggil dari main thread, tidak ada yang
+terlihat salah. Begitu satu UseCase memanggilnya dari hasil network, anomalinya
+muncul — dan biasanya di layar yang sebenarnya tidak diubah apa-apa, sehingga
+sangat sulit dihubungkan ke penyebabnya.
+
+### 11. `renewIdentifier()` bukan formalitas
+
+Ia bukan sekadar mengganti UUID; ia juga yang mengubah `state` menjadi
+`.active`. UseCase tanpa itu akan menolak memuat data tanpa suara. Panggil
+sekali saat UseCase dibuat, dan jangan pernah mengirim ViewModel yang membawa
+UseCase default ke layar.
+
 > Periksa juga helper yang menyembunyikan formatter di dalamnya. Ekstensi
 > seperti `String.convertToDate(format:)` biasanya membuat `DateFormatter`
 > baru pada setiap pemanggilan, dan biaya itu tidak terlihat dari titik
@@ -273,7 +365,9 @@ Jadikan wajib, supaya kesalahannya tertangkap saat kompilasi.
 - [ ] ViewModel membaca lewat satu akses tunggal di UseCase
 - [ ] Semua sub-ViewModel di-assign ulang, tidak ada yang diubah di tempat
 - [ ] Semua closure yang disimpan memakai `[weak self]` atau hanya menangkap nilai
-- [ ] `renewIdentifier()` hanya sekali, saat UseCase dibuat
+- [ ] `renewIdentifier()` dipanggil tepat sekali, saat UseCase dibuat
+- [ ] Tidak ada ViewModel yang sampai ke layar membawa UseCase default
+- [ ] UseCase tidak memanggil `callback.onXxx()` langsung; selalu lewat helper
 - [ ] Formatter berupa `static let`
 - [ ] `@ObservedObject` di layar tidak punya nilai default
 - [ ] Ada test yang memanggil `trackForMemoryLeaks` pada ViewModel dan UseCase

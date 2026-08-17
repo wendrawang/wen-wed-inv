@@ -11,7 +11,7 @@ final class DetailCardInfoScreenViewModelTests: XCTestCase {
     /// ViewModel menyimpan UseCase sementara UseCase menyimpan closure yang
     /// menahan ViewModel.
     func testViewModelAndUseCaseAreReleased() {
-        let useCase = DetailCardInfoScreenUseCase()
+        let useCase = makeUseCase()
         let sut = DetailCardInfoScreenViewModel()
 
         sut.setUseCase(useCase)
@@ -21,38 +21,37 @@ final class DetailCardInfoScreenViewModelTests: XCTestCase {
 
     /// Menangkap retain cycle lewat closure aksi salin nomor kartu.
     func testCardNumberActionDoesNotRetainViewModel() {
-        let useCase = DetailCardInfoScreenUseCase()
-        useCase.input.bankCard = BankCard.stubbed()
-
+        let useCase = makeUseCase()
         let sut = DetailCardInfoScreenViewModel()
+
         sut.setUseCase(useCase)
         sut.loadData()
+        drainMainQueue()
 
-        // Aksi sudah terpasang di sini; kalau ia menahan ViewModel,
-        // teardown akan gagal.
-        XCTAssertNotNil(sut.cardNumberViewModel.action)
+        XCTAssertFalse(
+            sut.cardNumberViewModel.subtitles.isEmpty,
+            "Aksi belum terpasang karena tampilan belum terisi."
+        )
 
         trackForMemoryLeaks([sut, useCase])
     }
 
     /// Menjaga perbaikan bug "CVV dan nomor kartu kosong".
     ///
-    /// Yang diuji adalah urutannya: setelah `loadData()`, field harus sudah
-    /// terisi tanpa perlu render kedua. Kalau suatu saat ada yang memanggil
+    /// Yang diuji adalah urutannya: setelah `loadData()` dan antrean main
+    /// selesai, field harus terisi. Kalau suatu saat ada yang memanggil
     /// `setupView()` sebelum repository terisi, atau `loadData()` hilang dari
     /// jalur pembangunan coordinator, test ini merah.
     func testFieldsArePopulatedAfterLoadData() {
         let bankCard = BankCard.stubbed()
-
-        let useCase = DetailCardInfoScreenUseCase()
-        useCase.renewIdentifier()
-        useCase.input.bankCard = bankCard
+        let useCase = makeUseCase(bankCard: bankCard)
 
         let sut = DetailCardInfoScreenViewModel()
         sut.configure(with: bankCard)
         sut.setUseCase(useCase)
 
         sut.loadData()
+        drainMainQueue()
 
         XCTAssertFalse(
             sut.cardNumberViewModel.subtitles.isEmpty,
@@ -64,5 +63,38 @@ final class DetailCardInfoScreenViewModelTests: XCTestCase {
         )
 
         trackForMemoryLeaks([sut, useCase])
+    }
+
+    // MARK: - Bantuan
+
+    /// `renewIdentifier()` wajib — tanpanya `state` tetap `.inactive` dan
+    /// `requestLoadData()` melewati pemuatan data. Di build Debug base UseCase
+    /// akan berhenti dengan `assertionFailure`; di Release ia diam saja, dan
+    /// itulah bentuk kegagalan yang dulu membuat layar berdiri kosong.
+    private func makeUseCase(
+        bankCard: BankCard = .stubbed()
+    ) -> DetailCardInfoScreenUseCase {
+        let useCase = DetailCardInfoScreenUseCase()
+
+        useCase.renewIdentifier()
+        useCase.input.bankCard = bankCard
+
+        return useCase
+    }
+
+    /// Menunggu antrean main kosong.
+    ///
+    /// `startFetchSucceed(_:)` mengirim `onFetchSucceed` lewat
+    /// `DispatchQueue.main.async`, jadi `setupView()` belum berjalan saat
+    /// `loadData()` selesai. Karena antrean main bersifat FIFO, blok yang
+    /// dimasukkan setelahnya dijamin berjalan paling akhir.
+    private func drainMainQueue() {
+        let expectation = expectation(description: "main queue drained")
+
+        DispatchQueue.main.async {
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 1)
     }
 }
