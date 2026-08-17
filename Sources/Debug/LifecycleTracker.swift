@@ -119,7 +119,7 @@ final class LifecycleTracker {
         // pasangannya berarti ada yang salah, dan lebih baik berisik.
         assert(
             wasTracked,
-            "DEINIT \(typeName) [\(instanceIdentifier)] tanpa INIT pasangannya."
+            "DEINIT \(typeName) [\(instanceIdentifier)] without a matching INIT."
         )
 
         writeLog(
@@ -169,17 +169,17 @@ final class LifecycleTracker {
         let live = liveTypes()
 
         guard !live.isEmpty else {
-            return "[LIFECYCLE] Tidak ada objek terlacak yang masih hidup."
+            return "[LIFECYCLE] No tracked objects are alive."
         }
 
         let rows = live
             .sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }
             .map { typeName, count in
-                "  \(count)x \(typeName) (puncak \(peakCount(of: typeName)))"
+                "  \(count)x \(typeName) (peak \(peakCount(of: typeName)))"
             }
             .joined(separator: "\n")
 
-        return "[LIFECYCLE] Masih hidup:\n\(rows)"
+        return "[LIFECYCLE] Still alive:\n\(rows)"
     }
 
     /// Untuk dipakai di test: kosongkan seluruh catatan.

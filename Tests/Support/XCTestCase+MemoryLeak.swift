@@ -36,10 +36,10 @@ extension XCTestCase {
             XCTAssertNil(
                 instance,
                 """
-                \(typeName) belum dilepas setelah test selesai. \
-                Kemungkinan besar ada retain cycle — periksa closure yang \
-                disimpan (callback, sink, Timer, observer) dan pastikan \
-                memakai [weak self].
+                \(typeName) was not released after the test finished. \
+                This is most likely a retain cycle — check stored closures \
+                (callback, sink, Timer, observer) and make sure they use \
+                [weak self].
                 """,
                 file: file,
                 line: line
@@ -76,7 +76,7 @@ extension XCTestCase {
         XCTAssertTrue(
             live.isEmpty,
             """
-            Masih ada objek terlacak yang hidup setelah flow selesai: \
+            Tracked objects are still alive after the flow finished: \
             \(live.sorted { $0.key < $1.key }
                 .map { "\($0.value)x \($0.key)" }
                 .joined(separator: ", ")).
