@@ -16,7 +16,8 @@ Sources/Debug/LifecycleTracker.swift       counter + checkpoint
 Sources/Debug/RenderCounter.swift          penghitung evaluasi body (sementara)
 Sources/Navigation/LazyNavigationLink.swift  destination yang ditunda
 Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
-Examples/DetailCardInfo/                   layar rujukan, sudah diperbaiki
+Examples/DetailCardInfo/                   layar rujukan pendek, sudah diperbaiki
+Examples/TransferLanding/                  layar rujukan panjang berlist
 Examples/Base/UseCase.swift                penjagaan base yang berlaku global
 Examples/Base/Screen.swift                 tanpa ScreenContentViewModel terbuang
 docs/STATUS.md                             status semua temuan
@@ -37,10 +38,11 @@ ia menyebut tipe milik aplikasi (`Screen`, `UseCase`, `ScreenContentViewModel`,
 `R.*`) yang tidak ada di repo ini. Folder ini juga tidak ikut di-lint. Salin
 isinya ke proyek, jangan di-build dari sini.
 
-Satu bagian yang perlu Anda sunting setelah menyalin: `stubbedForCardInfoTests()`
-di bagian bawah `DetailCardInfoScreenViewModelTests.swift`. Bentuknya tebakan
+Dua bagian yang perlu Anda sunting setelah menyalin. `stubbedForCardInfoTests()`
+di bagian bawah `DetailCardInfoScreenViewModelTests.swift` — bentuknya tebakan
 dari pemakaian `BankCard(.unspecified)`, jadi sesuaikan dengan inisialiser
-sebenarnya. Dua dari tiga test tidak membutuhkannya sama sekali.
+sebenarnya. Dan dua test terakhir di `TransferLandingViewModelTests.swift`
+membutuhkan `RecipientService` yang di-stub. Test lainnya berjalan apa adanya.
 
 ## Cara memakai
 
