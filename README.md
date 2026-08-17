@@ -29,9 +29,13 @@ docs/SCREEN_CONTAINER_FINDINGS.md          temuan di Screen & ScreenContent
 
 `Examples/` adalah rujukan, bukan kode yang bisa dikompilasi berdiri sendiri —
 ia menyebut tipe milik aplikasi (`Screen`, `UseCase`, `ScreenContentViewModel`,
-`R.*`) yang tidak ada di repo ini, dan test-nya memakai `BankCard.stubbed()`
-yang perlu Anda sediakan. Folder ini juga tidak ikut di-lint. Salin isinya ke
-proyek, jangan di-build dari sini.
+`R.*`) yang tidak ada di repo ini. Folder ini juga tidak ikut di-lint. Salin
+isinya ke proyek, jangan di-build dari sini.
+
+Satu bagian yang perlu Anda sunting setelah menyalin: `stubbedForCardInfoTests()`
+di bagian bawah `DetailCardInfoScreenViewModelTests.swift`. Bentuknya tebakan
+dari pemakaian `BankCard(.unspecified)`, jadi sesuaikan dengan inisialiser
+sebenarnya. Dua dari tiga test tidak membutuhkannya sama sekali.
 
 ## Cara memakai
 
