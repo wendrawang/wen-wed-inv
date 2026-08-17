@@ -18,6 +18,7 @@ Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
 Examples/DetailCardInfo/                   layar rujukan, sudah diperbaiki
 Examples/Base/UseCase.swift                penjagaan base yang berlaku global
 docs/LIFECYCLE_RULES.md                    aturan lifecycle
+docs/ACCESS_MATRIX.md                      matriks akses antar lapisan
 docs/SCREEN_PATTERN.md                     pola layar + checklist migrasi
 docs/BASE_VIEWMODEL_FINDINGS.md            temuan di ScreenContentViewModel
 docs/SCREEN_CONTAINER_FINDINGS.md          temuan di Screen & ScreenContent
@@ -35,7 +36,7 @@ proyek, jangan di-build dari sini.
 ## Cara memakai
 
 Untuk menulis atau memigrasi sebuah layar, baca
-[docs/SCREEN_PATTERN.md](docs/SCREEN_PATTERN.md) — sembilan aturan beserta
+[docs/SCREEN_PATTERN.md](docs/SCREEN_PATTERN.md) — sebelas aturan beserta
 checklist migrasi, diturunkan dari satu bug nyata di layar Detail Debit Card
 Info (CVV dan nomor kartu kadang kosong).
 

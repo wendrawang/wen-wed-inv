@@ -17,7 +17,17 @@ import SwiftUI
 struct DetailDebitCardInfoCoordinator: View {
     @Binding var selectionCoordinatorName: String?
     @Binding var sourceCoordinatorName: String?
-    @Binding var debitCard: BankCard
+
+    /// Closure pembaca, bukan `Binding`.
+    ///
+    /// Matriks akses memperbolehkan coordinator **membaca** `output` tetapi
+    /// melarangnya menulis, dan `Binding` memberikan keduanya. Nilai biasa juga
+    /// tidak bisa dipakai karena `output` tidak `@Published` — nilai yang
+    /// ditangkap saat body parent berjalan bisa basi ketika `output` terisi
+    /// belakangan. Closure memberi pembacaan hidup tanpa kemampuan menulis.
+    ///
+    /// Di parent: `debitCard: { useCase.output.bankCard }`
+    let debitCard: () -> BankCard
 
     var body: some View {
         LazyNavigationLink(
@@ -35,7 +45,7 @@ struct DetailDebitCardInfoCoordinator: View {
     /// berbeda dengan mengubahnya dari dalam `body`, yang merupakan mutasi
     /// state di tengah view update dan hasilnya tidak terdefinisi.
     private func createDestination() -> some View {
-        let bankCard = debitCard
+        let bankCard = debitCard()
         let useCase = createUseCase(bankCard: bankCard)
         let viewModel = createViewModel(useCase: useCase, bankCard: bankCard)
 

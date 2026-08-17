@@ -144,9 +144,9 @@ blank.
 
 Yang menjamin ini bukan sekadar hilangnya cabang `if`, tapi satu invarian:
 **di kode yang baru tidak ada satu pun jalur yang menghasilkan ViewModel tanpa
-konfigurasi.** `createDestination()` selalu membangun UseCase, ViewModel, dan
-memanggil `loadData()` sebagai satu kesatuan. Kalau layar dapat ViewModel, ia
-pasti ViewModel yang lengkap.
+konfigurasi.** `createDestination()` selalu membangun UseCase lengkap dengan
+`renewIdentifier()`, lalu ViewModel yang sudah terhubung ke UseCase itu, sebagai
+satu kesatuan. Kalau layar dapat ViewModel, ia pasti ViewModel yang lengkap.
 
 Invarian keduanya menutup sisi yang satu lagi: `setupView()` `private` dan
 hanya bisa dipicu `onFetchSucceed`, sedangkan `onFetchSucceed` hanya menyala
@@ -222,17 +222,21 @@ kosong, karena satu-satunya pemicunya adalah `onFetchSucceed`, dan
 `onFetchSucceed` hanya menyala dari dalam `loadData()` setelah repository
 terisi.
 
-### 4. ViewModel selalu membaca `repository`, tidak pernah `input`
+### 4. Ikuti matriks akses
 
-`input` adalah apa yang diminta; `repository` adalah apa yang sudah
+Lapisan mana boleh menyentuh `callback`, `input`, `output`, dan `repository`
+sudah diatur di [ACCESS_MATRIX.md](ACCESS_MATRIX.md). Itu sumber kebenarannya.
+
+Yang paling sering keliru: **ViewModel membaca `repository`, tidak pernah
+`input`.** `input` adalah apa yang diminta; `repository` adalah apa yang sudah
 terselesaikan oleh `loadData()`. ViewModel yang membaca `input` akan tampak
-benar padahal melewati satu langkah.
+benar padahal melewati satu langkah — dan itu persis bentuk bug yang memulai
+seluruh penelusuran ini.
 
-Ini konvensi, bukan kode. Menambahkan accessor khusus di tiap UseCase —
-misalnya `var bankCard: BankCard { repository.bankCard }` — justru merusak
-bentuk baku `input`/`repository`/`callback` dan tetap tidak mencegah siapa pun
-membaca `input`. Aturan yang berlaku seragam di semua UseCase lebih berguna
-daripada penjaga buatan di satu-dua tempat.
+Jangan menambahkan accessor khusus seperti
+`var bankCard: BankCard { repository.bankCard }` untuk "memperjelas". Itu
+merusak bentuk baku `input`/`repository`/`callback` dan tetap tidak mencegah
+siapa pun membaca `input`.
 
 ### 5. Satu gaya pembaruan sub-ViewModel
 
@@ -391,7 +395,8 @@ Jadikan wajib, supaya kesalahannya tertangkap saat kompilasi.
 - [ ] Coordinator tidak memanggil `flushData()` maupun `setupView()`
 - [ ] Semua objek dibangun di dalam builder `LazyNavigationLink`
 - [ ] `setupView()` sudah `private`, dan coordinator **tidak** memanggil `loadData()`
-- [ ] ViewModel membaca lewat satu akses tunggal di UseCase
+- [ ] Akses `callback`/`input`/`output`/`repository` sesuai matriks akses
+- [ ] Coordinator menerima `output` sebagai closure pembaca, bukan `Binding`
 - [ ] Semua sub-ViewModel di-assign ulang, tidak ada yang diubah di tempat
 - [ ] Semua closure yang disimpan memakai `[weak self]` atau hanya menangkap nilai
 - [ ] `renewIdentifier()` dipanggil tepat sekali, saat UseCase dibuat
