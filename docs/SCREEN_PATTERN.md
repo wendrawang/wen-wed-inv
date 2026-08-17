@@ -162,75 +162,77 @@ di siklus layar.
 
 ---
 
-## Satu pola, dua tahap
+## Satu pola, satu penyesuaian untuk layar bercabang
 
-`Examples/DetailCardInfo` dan `Examples/TransferLanding` terlihat berbeda, dan
-itu **bukan dua gaya yang boleh dipilih**. Keduanya menuju bentuk yang sama;
-yang satu sudah sampai, yang satu belum bisa.
+Kedua contoh di `Examples/` memakai bentuk yang sama: tidak ada `viewModel`
+maupun `useCase` sebagai property coordinator, semuanya dibangun di dalam
+`createDestination()` yang hanya berjalan sekali saat layar di-push.
 
-| | DetailCardInfo | TransferLanding |
-|---|---|---|
-| ViewModel & UseCase | dibangun di `createDestination()` | masih `@State` di coordinator |
-| Tautan | `LazyNavigationLink` | `NavigationLink` + `.id()` |
-| Status | **sudah dimigrasi** | **belum bisa dimigrasi** |
+Bedanya cuma satu, dan hanya muncul di layar yang punya banyak tujuan.
 
-### Syaratnya: semua anaknya sudah dimigrasi lebih dulu
+### Kenapa layar bercabang butuh dua tahap
 
-Sebuah coordinator baru bisa memakai bentuk baru kalau **seluruh coordinator
-tujuannya sudah memakai `LazyNavigationLink`.** Alasannya bukan selera, tapi
-perilaku `NavigationView` di iOS 13–14.
+Layar daun seperti Detail Card Info tidak punya tautan anak sama sekali, jadi
+tidak ada yang perlu dipikirkan.
 
-Ada dua cara membuat tujuan tidak dibangun sebelum waktunya:
+Layar seperti Transfer Landing membangun tautan **hanya untuk tujuan yang
+sedang dipilih** — itu yang membuat layar dengan sembilan tujuan tidak
+membangun sembilan cabang sekaligus. Tapi ada akibatnya: tautan anak baru
+muncul di pohon view pada saat tujuannya ditentukan, dan pada saat itu
+selection-nya **sudah** sama dengan tag-nya. `NavigationView` di iOS 13–14
+tidak melakukan push untuk tautan seperti itu — ia perlu melihat perpindahan
+dari tidak-terpilih ke terpilih.
 
-**Membangun bersyarat** — hanya membangun tautan untuk tujuan yang cocok
-dengan `destinationCoordinatorName`. Ini yang dipakai Transfer Landing. Murah,
-tapi punya akibat: saat nilainya berubah, tautan anak **muncul di pohon view
-dalam keadaan selection-nya sudah sama dengan tag-nya**, dan `NavigationView`
-tidak melakukan push untuk tautan seperti itu. Karena itu ia butuh `.id()`
-untuk memaksa subtree-nya dibangun ulang — dan `.id()` tidak bisa hidup
-bersama `LazyNavigationLink`, yang builder-nya hanya berjalan sekali lalu
-hasilnya dibekukan.
+Gejalanya persis: tautannya tidak berganti karena satu tujuan sudah terlanjur
+terpilih sejak tautannya lahir.
 
-**Membangun semua, menunda isinya** — seluruh coordinator tujuan selalu ada di
-pohon, tetapi masing-masing memakai `LazyNavigationLink` sehingga isinya baru
-dibangun saat benar-benar di-push. Tidak ada tautan yang disisipkan dalam
-keadaan sudah terpilih, jadi `.id()` tidak dibutuhkan sama sekali.
+### Penyelesaiannya: pisahkan "dibangun" dari "terpilih"
 
-Cara kedua yang jadi tujuan kita. Tapi ia hanya bermanfaat kalau anak-anaknya
-sudah lazy — kalau belum, menaruh sembilan coordinator sekaligus di pohon
-justru mengembalikan cascade yang kita hindari.
+```swift
+/// Menentukan tautan mana yang dibangun di pohon view.
+@State private var pendingDestinationCoordinatorName: String?
 
-### Karena itu: migrasi dari daun ke atas
+/// Menentukan tautan mana yang terpilih.
+@State private var activeDestinationCoordinatorName: String?
 
-```
-TransferLanding                  ← paling akhir (9 anak)
- └── TransferTransactionAmount   ← menyusul
-      └── …
-           └── layar tanpa tujuan  ← mulai dari sini
+private func startDestination(_ coordinatorName: String) {
+    let active = $activeDestinationCoordinatorName
+
+    pendingDestinationCoordinatorName = coordinatorName   // tautannya masuk
+
+    DispatchQueue.main.async {
+        active.wrappedValue = coordinatorName             // baru dinyalakan
+    }
+}
 ```
 
-Layar tanpa coordinator tujuan bisa dimigrasi kapan saja — tidak ada
-prasyaratnya. Itu sebabnya Detail Card Info duluan: ia daun.
+Tautannya masuk ke pohon dalam keadaan belum terpilih, lalu selection-nya
+dinyalakan satu putaran runloop kemudian. SwiftUI melihat perpindahan yang
+dibutuhkannya, tautannya tetap hanya satu, dan `.id()` tidak diperlukan.
 
-Selama sebuah coordinator belum bisa dimigrasi, **biarkan bentuknya apa
-adanya.** Jangan menyetengahi. Yang tetap boleh dan wajib dikerjakan adalah
-perbaikan di dalam badan method — `[weak self]`, penerbitan yang digabung,
-`startFetchLoading()`, penjagaan nilai — karena semuanya tidak menyentuh
-struktur navigasi dan tidak menunggu siapa pun.
+Menyetel keduanya sekaligus tidak bekerja — itu sama saja dengan keadaan
+semula.
 
-Itulah persis isi perubahan di `Examples/TransferLanding`: bentuk file tidak
-berubah, hanya isinya.
+### Yang digantikan
+
+Versi lama memakai `.id(destinationCoordinatorName)` untuk mencapai hal yang
+sama: mengubah identitas seluruh layar supaya tautannya terpasang di pohon
+yang benar-benar baru. Itu bekerja, tetapi merobohkan dan membangun ulang
+seluruh `Screen` setiap kali berpindah dan setiap kali kembali — membawa serta
+posisi scroll, isi list, dan kata kunci pencarian.
+
+`.id()` juga tidak bisa hidup bersama `LazyNavigationLink`, karena builder lazy
+hanya berjalan sekali lalu hasilnya dibekukan sehingga nilai `.id()` tidak
+pernah berubah lagi. Dua tahap ini yang membuat keduanya bisa dipakai bersama.
+
+> Kalau sebuah coordinator punya tujuan, pakai dua tahap. Kalau ia daun, tidak
+> perlu. Itu satu-satunya percabangan dalam pola ini.
 
 ---
 
 ## Aturan
 
 ### 1. Coordinator tidak menyimpan ViewModel atau UseCase
-
-Berlaku untuk coordinator yang **sudah bisa dimigrasi**. Untuk yang belum,
-lihat bagian "Satu pola, dua tahap" di atas — dan sementara itu simpan
-keduanya sebagai `@State`, bukan `private let`, supaya setidaknya tidak
-dialokasikan ulang setiap render.
 
 Struct `View` di-init ulang setiap kali body induknya dievaluasi.
 `private let viewModel = ...` berarti objek baru pada setiap render, bukan

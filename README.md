@@ -16,8 +16,8 @@ Sources/Debug/LifecycleTracker.swift       counter + checkpoint
 Sources/Debug/RenderCounter.swift          penghitung evaluasi body (sementara)
 Sources/Navigation/LazyNavigationLink.swift  destination yang ditunda
 Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
-Examples/DetailCardInfo/                   layar daun, SUDAH dimigrasi
-Examples/TransferLanding/                  layar berlist, BELUM bisa dimigrasi
+Examples/DetailCardInfo/                   layar daun
+Examples/TransferLanding/                  layar berlist dengan banyak tujuan
 Examples/Base/UseCase.swift                penjagaan base yang berlaku global
 Examples/Base/Screen.swift                 tanpa ScreenContentViewModel terbuang
 docs/STATUS.md                             status semua temuan
@@ -51,11 +51,10 @@ Untuk menulis atau memigrasi sebuah layar, baca
 checklist migrasi, diturunkan dari satu bug nyata di layar Detail Debit Card
 Info (CVV dan nomor kartu kadang kosong).
 
-**Mulai dari bagian "Satu pola, dua tahap".** Dua contoh di `Examples/`
-sengaja berbeda bentuk, dan itu bukan dua gaya yang boleh dipilih: sebuah
-coordinator baru bisa memakai bentuk baru setelah seluruh coordinator tujuannya
-dimigrasi lebih dulu. Jadi migrasinya dari daun ke atas, dan Transfer Landing —
-dengan sembilan tujuan — ada di paling akhir antrean.
+Kedua contoh di `Examples/` memakai bentuk yang sama. Satu-satunya percabangan:
+coordinator yang punya tujuan memisahkan "tautan dibangun" dari "tautan
+terpilih" — lihat bagian "Satu pola, satu penyesuaian untuk layar bercabang".
+Coordinator daun tidak perlu itu.
 
 Untuk aturan lifecycle-nya, baca
 [docs/LIFECYCLE_RULES.md](docs/LIFECYCLE_RULES.md). Ringkasnya, ada tiga
