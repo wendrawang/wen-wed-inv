@@ -84,9 +84,13 @@ extension TransferLandingCoordinator {
     ) -> TransferLandingViewModel {
         let viewModel = TransferLandingViewModel()
 
-        // PERUBAHAN: `[weak viewModel]`. Closure ini disimpan di ViewModel.
-        viewModel.onCreateNavigationLinks = { [weak viewModel] in
-            guard let viewModel = viewModel else {
+        // PERUBAHAN: `[weak viewModel, weak useCase]`. Closure ini disimpan di
+        // ViewModel, jadi `useCase` yang ditangkap kuat berarti ViewModel
+        // memegang UseCase lewat dua jalur — property dan closure ini. Satu
+        // jalur weak sudah cukup: ViewModel-lah pemilik UseCase-nya, jadi
+        // selama closure ini bisa dipanggil, UseCase-nya pasti masih ada.
+        viewModel.onCreateNavigationLinks = { [weak viewModel, weak useCase] in
+            guard let viewModel = viewModel, let useCase = useCase else {
                 return DefaultValues.emptyAnyView
             }
 

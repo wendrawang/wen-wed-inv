@@ -267,9 +267,37 @@ func testTransferLandingViewModelIsReleased() {
 }
 ```
 
-Catatan: `onStartFetchLoading = infiniteScrollViewModel.startLoading` **bukan**
-lingkaran. Ia menangkap `infiniteScrollViewModel`, bukan `self`, dan
-`infiniteScrollViewModel` tidak memegang ViewModel. Biarkan.
+### Koreksi: `onStartFetchLoading` juga harus diputus
+
+Saya sempat menulis di sini bahwa `onStartFetchLoading =
+infiniteScrollViewModel.startLoading` **bukan** lingkaran, karena ia menangkap
+`infiniteScrollViewModel` dan bukan `self`. Bagian pertamanya benar; kesimpulannya
+tidak. Alasan yang saya pakai — "`infiniteScrollViewModel` tidak memegang
+ViewModel" — tidak pernah saya buktikan, dan saya belum pernah membaca
+`PaginationScreenContentViewModel`.
+
+Yang bisa dipastikan dari kode yang ada: kedua baris itu menahan
+`infiniteScrollViewModel` secara kuat **dari dalam `useCase`**, dan
+`infiniteScrollViewModel` adalah milik ViewModel. Kalau base pagination memasang
+handler "muat halaman berikutnya" ke `infiniteScrollViewModel` lewat referensi
+method, rantainya tertutup:
+
+```
+viewModel → useCase → callback → infiniteScrollViewModel → viewModel
+```
+
+`[weak self]` memutusnya di mata rantai pertama tanpa perlu tahu isi base-nya,
+dan perilakunya tidak berubah — `infiniteScrollViewModel` dijamin ada selama
+ViewModel-nya ada:
+
+```swift
+useCase.callback.onStartFetchLoading = { [weak self] in
+    self?.infiniteScrollViewModel.startLoading()
+}
+```
+
+Kalau setelah ini `testLoadDataDoesNotRetainViewModel` masih merah, mata rantai
+terakhirnya ada di dalam base pagination dan harus diperbaiki di sana.
 
 ---
 

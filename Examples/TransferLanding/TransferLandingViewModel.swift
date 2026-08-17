@@ -367,11 +367,27 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
             self?.didReceiveError(error)
         }
 
-        // Dua ini sengaja dibiarkan apa adanya: keduanya menangkap
-        // `infiniteScrollViewModel`, bukan `self`, dan `infiniteScrollViewModel`
-        // tidak memegang ViewModel. Tidak ada lingkaran yang terbentuk.
-        useCase.callback.onStartFetchLoading = infiniteScrollViewModel.startLoading
-        useCase.callback.onStopFetchLoading = infiniteScrollViewModel.stopLoading
+        // PERUBAHAN: dua ini sebelumnya saya biarkan apa adanya, dengan alasan
+        // keduanya menangkap `infiniteScrollViewModel` dan bukan `self`.
+        //
+        // **Alasan itu tidak pernah saya buktikan.** Yang benar: keduanya
+        // menahan `infiniteScrollViewModel` secara kuat dari dalam `useCase`,
+        // dan `infiniteScrollViewModel` adalah milik ViewModel ini. Kalau
+        // `infiniteScrollViewModel` menyimpan apa pun yang menunjuk balik ke
+        // ViewModel — misalnya handler "muat halaman berikutnya" yang dipasang
+        // di base pagination — rantainya tertutup:
+        //
+        //   viewModel → useCase → callback → infiniteScrollViewModel → viewModel
+        //
+        // Lewat `[weak self]` rantai itu terputus di mata rantai pertama, tanpa
+        // perlu tahu isi base-nya. Perilakunya sama: `infiniteScrollViewModel`
+        // dijamin ada selama ViewModel-nya ada.
+        useCase.callback.onStartFetchLoading = { [weak self] in
+            self?.infiniteScrollViewModel.startLoading()
+        }
+        useCase.callback.onStopFetchLoading = { [weak self] in
+            self?.infiniteScrollViewModel.stopLoading()
+        }
 
         self.useCase = useCase
     }

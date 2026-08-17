@@ -106,6 +106,41 @@ Kalau ada yang tersisa, `liveInstanceIdentifiers(of:)` memberi alamat objeknya
 dalam hex, dan alamat itu bisa dicari langsung di Memory Graph Debugger untuk
 melihat siapa yang menahannya.
 
+### Cara membaca snapshot-nya
+
+`snapshotDescription()` hanya **mengembalikan** `String`. Memanggilnya tanpa ada
+yang mencetak hasilnya tidak menghasilkan apa pun yang terlihat. Ada tiga jalan,
+urut dari yang paling tidak merepotkan:
+
+**1. Lewat log yang sudah Anda baca.** `logSnapshot()` mengirimnya ke subsystem,
+kategori, dan level yang sama dengan INIT/DEINIT. Kalau log INIT terlihat, ini
+terlihat juga. Pasang pemicunya di satu tempat yang mudah dijangkau — misalnya
+di `AppDelegate`:
+
+```swift
+#if DEBUG
+func applicationDidEnterBackground(_ application: UIApplication) {
+    LifecycleTracker.shared.logSnapshot()
+}
+#endif
+```
+
+Lalu: masuk ke layar dalam, kembali ke root, tekan tombol home. Snapshot-nya
+muncul di log, berisi apa saja yang masih hidup padahal seharusnya sudah lepas.
+
+**2. Lewat debugger, tanpa mengubah kode sama sekali.** Jalankan dari Xcode,
+tekan tombol pause (⌃⌘Y), lalu di konsol debugger:
+
+```
+expression -l Swift -- print(LifecycleTracker.shared.snapshotDescription())
+```
+
+**3. Lewat clipboard, kalau tidak ada konsol sama sekali.**
+`copySnapshotToPasteboard()` menyalin snapshot supaya bisa ditempel ke catatan
+atau chat. Ini untuk aplikasi yang terpasang di device tanpa Xcode menempel.
+Pasang pemicunya di gestur yang tidak dipakai, misalnya long-press pada judul
+navigation bar layar root.
+
 ---
 
 ## Cara membaca hasilnya

@@ -39,6 +39,58 @@ final class TransferLandingViewModelTests: XCTestCase {
         trackForMemoryLeaks([sut, useCase])
     }
 
+    // MARK: - Membelah tahap: di mana lingkaran itu terbentuk
+
+    // PERUBAHAN: dua test di bawah ini baru.
+    //
+    // `testRowActionsDoNotRetainViewModel` merah, sementara dua test di atas
+    // hijau. Itu memberi tahu bahwa lingkaran terbentuk di suatu tempat antara
+    // `setUseCase()` dan selesainya `loadData()` — tetapi tidak memberi tahu di
+    // mana. Dua test ini membelah rentang itu, dan keduanya **tidak** bergantung
+    // pada `RecipientService` yang di-stub, jadi hasilnya bisa dipercaya apa
+    // adanya.
+    //
+    // Cara membaca hasilnya:
+    //
+    // | Yang merah | Lingkarannya ada di |
+    // |---|---|
+    // | `testInitStateDoesNotRetain…` | `initState()` — kandidat utama `activateDebounceInput()` pada `searchBarViewModel`, kalau langganannya menangkap `self` kuat |
+    // | `testLoadDataDoesNotRetain…` saja | `loadData()` — kandidat utama `super.loadData()` di base pagination, lewat `infiniteScrollViewModel` |
+    // | hanya `testRowActions…` | pemasangan aksi per baris, jadi di `makeAccountHeadlineViewModel` |
+
+    /// Memisahkan `initState()` dari `loadData()`.
+    ///
+    /// `initState()` memanggil `activateDebounceInput()`, dan debounce hampir
+    /// selalu berarti langganan Combine. Kalau langganan itu menangkap `self`
+    /// secara kuat sementara cancellable-nya disimpan di ViewModel, lingkarannya
+    /// tertutup di situ — bukan di daftar.
+    func testInitStateDoesNotRetainViewModel() {
+        let useCase = makeUseCase()
+        let sut = TransferLandingViewModel()
+
+        sut.setUseCase(useCase)
+        sut.initState()
+
+        trackForMemoryLeaks([sut, useCase])
+    }
+
+    /// Memisahkan `loadData()` dari pemasangan aksi per baris.
+    ///
+    /// Sengaja tanpa assertion apa pun tentang isi daftar. Kalau
+    /// `RecipientService` belum di-stub, daftarnya kosong dan test ini tetap
+    /// bermakna: `setupView()` dan `super.loadData()` sudah berjalan, dan
+    /// keduanya cukup untuk membentuk lingkaran kalau ada.
+    func testLoadDataDoesNotRetainViewModel() {
+        let useCase = makeUseCase()
+        let sut = TransferLandingViewModel()
+
+        sut.setUseCase(useCase)
+        sut.loadData()
+        drainMainQueue()
+
+        trackForMemoryLeaks([sut, useCase])
+    }
+
     /// Menangkap lingkaran yang jumlahnya mengikuti panjang daftar.
     ///
     /// Setiap baris menyimpan dua closure — aksi favorit dan aksi pilih — di
@@ -49,6 +101,11 @@ final class TransferLandingViewModelTests: XCTestCase {
     /// **Butuh `RecipientService` di-stub.** Assertion pertama ada justru
     /// untuk mencegah test ini hijau palsu: daftar kosong berarti aksinya tidak
     /// pernah terpasang, sehingga tidak ada yang diuji.
+    ///
+    /// Karena itu, baca dulu **pesan** kegagalannya sebelum mencari `weak` yang
+    /// lupa. "Recipient list is empty" berarti stub-nya yang belum ada, bukan
+    /// ada yang bocor — pakai `testLoadDataDoesNotRetainViewModel` di atas untuk
+    /// pertanyaan kebocorannya, karena ia tidak butuh stub.
     func testRowActionsDoNotRetainViewModel() {
         let useCase = makeUseCase()
         let sut = TransferLandingViewModel()

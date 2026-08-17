@@ -2,6 +2,8 @@
 
 import Foundation
 import os.log
+// PERUBAHAN: dibutuhkan `copySnapshotToPasteboard()`.
+import UIKit
 
 /// Menentukan tipe mana yang boleh mencetak ke konsol.
 ///
@@ -180,6 +182,47 @@ final class LifecycleTracker {
             .joined(separator: "\n")
 
         return "[LIFECYCLE] Still alive:\n\(rows)"
+    }
+
+    // PERUBAHAN: dua cara membaca snapshot tanpa perlu terminal.
+    //
+    // `snapshotDescription()` hanya mengembalikan `String`. Kalau tidak ada yang
+    // mencetaknya, memanggilnya tidak menghasilkan apa-apa yang terlihat — dan
+    // itu memang yang terjadi.
+
+    /// Mengirim snapshot ke log yang sama dengan INIT/DEINIT.
+    ///
+    /// Kalau log INIT sudah terlihat di tempat Anda, ini pasti terlihat juga:
+    /// subsystem, kategori, dan levelnya sama. Sengaja mengabaikan
+    /// `loggingPolicy` — snapshot selalu diminta secara sengaja, jadi tidak ada
+    /// alasan menyaringnya.
+    func logSnapshot() {
+        os_log(
+            "%{public}@",
+            log: log,
+            type: .info,
+            snapshotDescription() as NSString
+        )
+    }
+
+    /// Menyalin snapshot ke clipboard supaya bisa ditempel ke mana saja —
+    /// catatan, chat, atau deskripsi issue.
+    ///
+    /// Ini jalan keluar untuk kondisi tanpa konsol sama sekali: aplikasi
+    /// terpasang di device, Xcode tidak menempel. Pasang pemicunya di tempat
+    /// yang mudah dijangkau, misalnya long-press di judul navigation bar layar
+    /// root, lalu tempel hasilnya.
+    func copySnapshotToPasteboard() {
+        let snapshot = snapshotDescription()
+
+        UIPasteboard.general.string = snapshot
+
+        os_log(
+            "%{public}@",
+            log: log,
+            type: .info,
+            "[LIFECYCLE] Snapshot copied to the pasteboard." as NSString
+        )
     }
 
     /// Untuk dipakai di test: kosongkan seluruh catatan.
