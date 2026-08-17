@@ -1,12 +1,16 @@
 import SwiftUI
 
 /// Struktur, urutan method, dan nama-namanya sama persis dengan aslinya.
-/// Yang berubah hanya empat hal, semuanya di dalam badan method:
+/// Setiap baris yang berubah diberi komentar `PERUBAHAN:` di atasnya, jadi
+/// bisa diambil satu-satu tanpa mengganti seluruh file.
 ///
-/// 1. Setiap closure yang disimpan memakai `[weak self]`.
-/// 2. `setupRecipientList()` membangun ke array lokal lalu menerbitkan sekali.
-/// 3. `selectedTransferCategory` menjaga nilai sebelum menerbitkan.
-/// 4. `useCase` dijadikan `lazy` supaya nilai defaultnya tidak pernah dibuat.
+/// Ringkasnya ada lima:
+///
+/// 1. Dua penanda tujuan navigasi pindah ke sini dari coordinator.
+/// 2. Setiap closure yang disimpan memakai `[weak self]`.
+/// 3. `setupRecipientList()` membangun ke array lokal lalu menerbitkan sekali.
+/// 4. `selectedTransferCategory` menjaga nilai sebelum menerbitkan.
+/// 5. `useCase` dijadikan `lazy` supaya nilai defaultnya tidak pernah dibuat.
 class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalProtocol {
     @Published var accountHeadlineViewModels = [AccountHeadlineViewModel]()
     private(set) var privateAccountSelectionWidgetViewModel = BankAccountSelectionWidgetViewModel()
@@ -14,8 +18,27 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
     private(set) var transferCategoryViewModel = CategoryViewModel()
     private(set) var bankSelectionAdapter = BankSelectionAdapter()
 
-    /// `lazy` supaya nilai defaultnya tidak pernah benar-benar dibuat —
-    /// `setUseCase(_:)` menulisnya sebelum ada yang membacanya.
+    // PERUBAHAN: dua penanda tujuan navigasi, sebelumnya `@State` di
+    // coordinator.
+    //
+    // Harus di sini, bukan di coordinator. `LazyNavigationLink` membekukan
+    // destination, dan layar yang ter-push hanya mengamati ViewModel — ia tidak
+    // pernah tahu `@State` coordinator berubah. Menaruhnya di sini membuat
+    // penulisannya benar-benar memicu evaluasi ulang `renderNavigationLinks()`.
+    //
+    // Dipisah dua karena `NavigationView` iOS 13–14 tidak melakukan push untuk
+    // tautan yang disisipkan dalam keadaan sudah terpilih. Yang pertama
+    // menentukan tautan mana yang dibangun; yang kedua menyalakan selection-nya
+    // satu putaran runloop kemudian.
+
+    /// Menentukan tautan tujuan mana yang **dibangun** di pohon view.
+    @Published var pendingDestinationCoordinatorName: String?
+
+    /// Menentukan tautan tujuan mana yang **terpilih**.
+    @Published var activeDestinationCoordinatorName: String?
+
+    // PERUBAHAN: `lazy`, supaya nilai defaultnya tidak pernah benar-benar
+    // dibuat — `setUseCase(_:)` menulisnya sebelum ada yang membacanya.
     private(set) lazy var useCase = TransferLandingUseCase()
 
     private var selectedResponseRecipientTransfers: [ResponseRecipientList] {
@@ -24,8 +47,9 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
         ] ?? [ResponseRecipientList]()
     }
 
-    /// Penjagaan nilai sebelum menerbitkan. Di `willSet` nilai lama masih
-    /// tersedia, jadi penerbitan hanya terjadi kalau kategorinya berubah.
+    // PERUBAHAN: penjagaan nilai sebelum menerbitkan. Di `willSet` nilai lama
+    // masih tersedia, jadi penerbitan hanya terjadi kalau kategorinya berubah.
+    // Sebelumnya `objectWillChange.send()` dipanggil tanpa syarat.
     var selectedTransferCategory: TransferCategory = .unspecified {
         willSet {
             if newValue == selectedTransferCategory {
@@ -44,6 +68,7 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
         super.init()
         analytic = AnalyticManager.instance.analytics.visitTransferLanding
 
+        // PERUBAHAN: probe lifecycle, hanya di build Debug.
         #if DEBUG
         lifecycleProbe = LifecycleProbe(self)
         #endif
@@ -77,13 +102,13 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
         super.reloadData()
     }
 
-    /// Membangun ke array lokal, lalu menerbitkan sekali di akhir.
-    ///
-    /// Versi lama menulis langsung ke `accountHeadlineViewModels` — `removeAll()`
-    /// lalu `append()` di dalam loop — sehingga satu halaman berisi 20 kontak
-    /// menerbitkan 22 invalidasi berturut-turut. Karena invalidasi
-    /// `ObservableObject` bersifat object-level, tiap satunya meng-invalidasi
-    /// seluruh layar.
+    // PERUBAHAN: membangun ke array lokal, lalu menerbitkan sekali di akhir.
+    //
+    // Versi lama menulis langsung ke `accountHeadlineViewModels` —
+    // `removeAll()` lalu `append()` di dalam loop — sehingga satu halaman
+    // berisi 20 kontak menerbitkan 22 invalidasi berturut-turut. Karena
+    // invalidasi `ObservableObject` bersifat object-level, tiap satunya
+    // meng-invalidasi seluruh layar.
     private func setupRecipientList() {
         var accountHeadlineViewModels = [AccountHeadlineViewModel]()
 
@@ -108,15 +133,17 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
         }
     }
 
+    // PERUBAHAN: isi loop dipindah ke fungsi ini supaya `[weak self]`-nya
+    // terbaca. Isinya sama persis dengan versi lama.
     private func makeAccountHeadlineViewModel(
         _ bankContact: BankContact
     ) -> AccountHeadlineViewModel {
         let accountHeadlineViewModel = bankContact.convertToAccountHeadlineViewModel()
 
-        // `[weak self]` di kedua closure. Keduanya disimpan pada objek yang
-        // kemudian masuk ke `accountHeadlineViewModels` — property milik
-        // ViewModel ini sendiri — sehingga tanpa `weak`, setiap baris menahan
-        // ViewModel dan daftar 100 kontak berarti 200 lingkaran.
+        // PERUBAHAN: `[weak self]` di kedua closure. Keduanya disimpan pada
+        // objek yang kemudian masuk ke `accountHeadlineViewModels` — property
+        // milik ViewModel ini sendiri — sehingga tanpa `weak`, setiap baris
+        // menahan ViewModel dan daftar 100 kontak berarti 200 lingkaran.
         accountHeadlineViewModel.showFavoriteButton(
             action: { [weak self] in
                 self?.switchFavoriteState(bankContact)
@@ -142,6 +169,7 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
     private func switchFavoriteState(_ bankContact: BankContact) {
         if bankContact.isFavorite {
             var message = DialogCodes.Client.removeRecipientFromFavorite.dialogMessage
+            // PERUBAHAN: `[weak self]`.
             message.secondaryButton.customAction = { [weak self] in
                 self?.useCase.switchFavoriteState(bankContact: bankContact)
             }
@@ -212,6 +240,7 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
         searchBarViewModel.textFieldViewModel.leftIconName = R.image.iconColoredSearch.name
         searchBarViewModel.textFieldViewModel.isBottomLineVisible = false
         searchBarViewModel.textFieldViewModel.placeholder = R.string.field.searchRecipientName.text
+        // PERUBAHAN: `[weak self]`.
         searchBarViewModel.onStartSearch = { [weak self] _ in
             self?.reloadData()
         }
@@ -256,7 +285,7 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
     }
 
     func setUseCase(_ useCase: TransferLandingUseCase) {
-        // Delapan closure di bawah ini dulu dipasang sebagai referensi method
+        // PERUBAHAN: delapan closure di bawah ini dulu dipasang sebagai referensi method
         // (`onFetchSucceed = setupRecipientList`), yang menangkap `self` secara
         // kuat. Karena ViewModel menyimpan UseCase dan UseCase menyimpan
         // closure-nya, keduanya saling menahan dan tidak pernah dilepas.
@@ -301,11 +330,13 @@ extension TransferLandingViewModel {
             analytic: AnalyticManager.instance.analytics.hitTransferAccountSelect
         )
 
+        // PERUBAHAN: `[weak self]`.
         privateAccountSelectionWidgetViewModel.onReceiveError = { [weak self] error in
             self?.messageHandler(error.message, DefaultValues.emptyAnyDictionary)
         }
 
         privateAccountSelectionWidgetViewModel.setHeight(.infinity)
+        // PERUBAHAN: `[weak self]`.
         privateAccountSelectionWidgetViewModel.onChangeValue = { [weak self] bankAccount in
             self?.didSelectedPrivateBankAccount(bankAccount)
         }
@@ -332,6 +363,7 @@ extension TransferLandingViewModel {
             .availableNewTransferCategories
             .convertToCategoryItemViewModels()
 
+        // PERUBAHAN: `[weak self]`.
         transferCategoryViewModel.onSelectedItem = { [weak self] item in
             self?.onSelectedCategoryItem(item)
         }
@@ -366,3 +398,10 @@ extension TransferLandingViewModel {
         TransferCategory.proxy: useCase.repository.responseRecipientProxyTransfers
     ]}
 }
+
+// PERUBAHAN: konformansi baru, supaya coordinator bisa menulis
+// `viewModel.binding(\.activeDestinationCoordinatorName)`.
+//
+// Kalau nanti dibutuhkan di banyak layar, pindahkan ke
+// `ScreenContentViewModel` supaya seluruh ViewModel ikut.
+extension TransferLandingViewModel: PropertyBindable {}
