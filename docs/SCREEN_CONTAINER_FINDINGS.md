@@ -137,22 +137,122 @@ func renderNavigationLinks() -> some View {
 }
 ```
 
-Tiga hal sekaligus, dan semuanya di jalur render setiap layar.
-`onCreateNavigationLinks()` mengembalikan `AnyView`. `PrimitiveAddContactForm`
-dibangun di **semua** layar walaupun sebagian besar tidak memakai form kontak,
-dan `.setHidden` biasanya menyisakannya di hierarki alih-alih mengeluarkannya.
-Dan `identifier` menjalankan `String(describing: type(of: self))` — refleksi —
-pada setiap evaluasi.
+`onCreateNavigationLinks()` mengembalikan `AnyView`, dan itu ada di jalur render
+setiap layar. `identifier` juga menjalankan refleksi
+(`String(describing: type(of: self))`) pada setiap evaluasi — kecil, tapi
+gratis untuk dihilangkan.
 
-Yang paling murah diperbaiki adalah `PrimitiveAddContactForm`: bungkus dengan
-`if viewModel.isContactFormEnabled` supaya benar-benar tidak dibangun saat
-tidak dipakai.
+`PrimitiveAddContactForm` **bukan** masalah; lihat koreksi di bawah.
 
 ---
 
-## 5. Hal-hal yang perlu diukur, bukan diubah dulu
+## 5. Koreksi: `setHidden` sudah benar
 
-Tiga hal di `Screen` yang mencurigakan tetapi tidak boleh ditebak:
+Saya sempat menduga `.setHidden` menyisakan view di hierarki. Itu **salah**.
+
+```swift
+func setHidden(
+    _ isHidden: Bool,
+    isRemove: Bool = true,
+    ...
+) -> some View
+
+// HiddenViewModifier
+func body(content: Content) -> some View {
+    Group {
+        if isHidden {
+            renderEmptyView(content: content)   // isRemove == true → emptyContent saja
+        } else {
+            content
+        }
+    }
+}
+```
+
+Default `isRemove: true` benar-benar **mengeluarkan** view dari hierarki lewat
+cabang `if`/`else` di ViewBuilder. Dua kekhawatiran saya sebelumnya gugur:
+
+- `renderSheetView()` **tidak** membangun enam representable sekaligus. Hanya
+  cabang yang cocok dengan `sheetState` yang benar-benar dibangun. Tidak ada
+  view controller sia-sia.
+- `PrimitiveAddContactForm` tidak dibangun di layar yang tidak memakainya —
+  yang dievaluasi hanya `init` struct-nya sebagai argumen, dan itu murah.
+  Membungkusnya dengan `if` tidak akan memberi apa-apa.
+
+Hal yang sama berlaku untuk `renderScreenLoading()`: `Rectangle` dan
+`ActivityIndicatorView` tidak ada di pohon saat layar tidak sedang memuat.
+
+Satu konsekuensi yang perlu diingat: karena `setHidden` memakai cabang
+ViewBuilder, mengubah nilainya **menghancurkan dan membangun ulang** isinya.
+Untuk tampilan tanpa state itu tepat. Untuk view yang menyimpan state internal
+atau memuat sumber daya (gambar, web view), sembunyikan-tampilkan berulang
+berarti muat ulang berulang.
+
+`invisible()` juga wajar. `.isDetailLink(false)` memang yang dibutuhkan
+`NavigationView` di iOS 13–14, dan `.opacity(0)` pada `NavigationLink`
+berlabel `EmptyView` praktis tidak berbiaya layout.
+
+> Catatan penamaan: `OpacityLevels.highest` bernilai `0`. Pembaca yang wajar
+> akan mengira "opacity tertinggi" berarti paling pekat. Menamainya
+> `OpacityLevels.transparent` akan menghemat satu kesalahpahaman yang cepat
+> atau lambat akan terjadi.
+
+---
+
+## 6. `ImageViewModel` tidak memuat gambar
+
+File ini hanya menyimpan `name` / `url` / `base64` sebagai string. Tidak ada
+pengunduhan, cache, decode, maupun downsampling di sini — semuanya ada di view
+yang merendernya. Jadi pertanyaan terbesar untuk fps dan memori **belum
+terjawab**; yang dibutuhkan adalah `ImageView` (atau apa pun yang mengubah
+`url` menjadi piksel).
+
+Yang bisa disimpulkan dari file ini:
+
+**Identitasnya berbasis objek, bukan isi.**
+
+```swift
+let key = UUID()
+
+static func == (lhs: ImageViewModel, rhs: ImageViewModel) -> Bool {
+    lhs.key == rhs.key
+}
+```
+
+Dua `ImageViewModel` dengan URL yang sama persis **tidak** dianggap sama, dan
+`Identifiable` pada tipe class memakai identitas objek. Artinya mengganti
+`ImageViewModel` dengan instance baru — walaupun URL-nya sama — membuat SwiftUI
+melihatnya sebagai gambar yang berbeda, dan besar kemungkinan memicu pemuatan
+ulang.
+
+Ini penting untuk aturan 5 di [SCREEN_PATTERN.md](SCREEN_PATTERN.md): "selalu
+assign ulang sub-ViewModel" tepat untuk tampilan biasa, tetapi **tidak** untuk
+sub-ViewModel yang memiliki sumber daya mahal. Pada layar ini kebetulan aman,
+karena gambar kartu ada di `headerBankCardViewModel` yang dibangun sekali lewat
+`configure(with:)` dan tidak disentuh `setupView()`. Di layar lain, menaruh
+gambar di sub-ViewModel yang di-assign ulang setiap refresh berarti memuat
+ulang gambar setiap refresh.
+
+**`setImage(url:)` menerbitkan lima kali berturut-turut.**
+
+`name`, `base64`, `isMonochromeEffectApplied`, `fallbackAppearance`, lalu `url`
+— semuanya `@Published`. Pada objek baru yang belum diamati itu tidak
+berbiaya. Pada `ImageViewModel` yang sudah tampil di layar, satu panggilan
+`setImage` berarti lima invalidasi berturut-turut untuk view yang mengamatinya.
+
+**`onLoadImageSucceed` adalah closure tersimpan.**
+
+Pola yang sama dengan temuan lain: kalau pemanggil mengoper `self.someMethod`,
+`ImageViewModel` akan menahan objek itu, sementara objek itu biasanya juga
+memegang `ImageViewModel`. Periksa call site `setImage(url:onLoadImageSucceed:)`.
+
+**`setImage(url:)` melakukan kerja parsing setiap dipanggil** —
+`removingPercentEncoding`, `addingPercentEncoding`, dan `isValidUrl`. Untuk satu
+gambar tidak masalah; di dalam list yang di-scroll, ini pantas dilihat.
+
+---
+
+## 7. Yang perlu diukur, bukan diubah dulu
 
 **`.blur()` di akar setiap layar.**
 
@@ -163,18 +263,8 @@ Tiga hal di `Screen` yang mencurigakan tetapi tidak boleh ditebak:
 Modifier ini selalu ada di pohon, bahkan saat radiusnya nol. Filter komposit
 di akar seluruh layar adalah tempat klasik lahirnya offscreen rendering. Apakah
 SwiftUI memotong jalur itu saat radius nol tidak terdokumentasi, jadi ini
-pertanyaan untuk Instruments (Core Animation, centang Color Offscreen-Rendered),
-bukan untuk ditebak.
-
-**Enam representable di dalam satu sheet.**
-
-`renderSheetView()` membangun `PrimitiveActivityView`, `PrimitiveMessageComposer`,
-`PrimitiveImagePicker`, `PrimitiveContactPicker`, `MailView`, dan `SafariView`
-sekaligus, masing-masing disembunyikan dengan `.setHidden`. Kalau `.setHidden`
-tidak mengeluarkannya dari hierarki, setiap sheet yang tampil berpotensi
-membuat lima view controller yang tidak dipakai. `switch contentViewModel.sheetState`
-akan menyisakan satu saja — tapi periksa dulu apa yang sebenarnya dilakukan
-`.setHidden`.
+pertanyaan untuk Instruments (Core Animation, centang Color
+Offscreen-Rendered), bukan untuk ditebak.
 
 **`@EnvironmentObject var appState: AppState`.**
 

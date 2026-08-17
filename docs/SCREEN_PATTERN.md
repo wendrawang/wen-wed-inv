@@ -247,9 +247,21 @@ ditelusuri.
 private func makeCvvViewModel(_ bankCard: BankCard) -> DescriptionVerticalViewModel { ... }
 
 private func setupView() {
-    cvvViewModel = makeCvvViewModel(useCase.bankCard)
+    cvvViewModel = makeCvvViewModel(useCase.repository.bankCard)
 }
 ```
+
+**Pengecualiannya: sub-ViewModel yang memiliki sumber daya mahal.**
+`ImageViewModel` beridentitas objek, bukan isi — dua instance dengan URL yang
+sama persis tetap dianggap berbeda oleh SwiftUI. Meng-assign ulang sub-ViewModel
+yang memuat gambar atau web view berarti memuat ulang isinya setiap kali,
+walaupun datanya tidak berubah.
+
+Pisahkan keduanya berdasarkan jalurnya: bagian yang memuat sumber daya dibangun
+**sekali** di `configure(with:)`, sementara bagian yang mengikuti data
+di-assign ulang di `setupView()`. Di layar rujukan, `headerBankCardViewModel`
+yang memegang gambar kartu ada di jalur pertama, dan `setupView()` tidak pernah
+menyentuhnya.
 
 ### 6. Closure yang disimpan selalu `[weak self]`
 
