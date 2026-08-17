@@ -1,5 +1,12 @@
 # Temuan di `ScreenContentViewModel`
 
+> **Sumbernya versi lama.** Analisis ini dibuat terhadap `ScreenContentViewModel`
+> **sebelum** perbaikan yang membuat `deinit` mulai terpanggil. Sebagian temuan
+> di bawah mungkin sudah tertutup. Jangan pakai dokumen ini sebagai daftar
+> pekerjaan — pakai sebagai daftar hal yang perlu dipastikan, dan biarkan test
+> yang memutuskan. `testScreenViewModelIsReleasedAfterInit` menjawab temuan 1
+> tanpa perlu membandingkan versi sama sekali.
+
 Semua yang ada di sini berlaku untuk **setiap layar** di aplikasi, karena
 letaknya di base class. Perbaikan di sini menyebar ke ratusan halaman tanpa
 menyentuh satu pun file layar — daya ungkitnya jauh lebih besar daripada
