@@ -6,6 +6,73 @@ tersenggol sama sekali, sekaligus persiapan revamp.
 
 ---
 
+## Mulai dari mana
+
+Bukan dari yang paling kecil — dari yang **tidak bergantung pada apa pun**.
+
+Ukuran dan kesulitan sering tidak sejalan. `DefaultValues` mungkin ratusan
+baris tetapi isinya konstanta murni, jadi memindahkannya nol risiko. Satu file
+tiga puluh baris yang menyebut `R.string` justru menyeret seluruh persoalan
+resource. Yang menentukan arah dependensinya, bukan jumlah barisnya.
+
+Aturannya: **pindahkan daun lebih dulu.** Sesuatu layak jadi langkah berikutnya
+kalau, setelah dipindah, package-nya masih bisa dikompilasi tanpa menyebut satu
+pun tipe yang tinggal di project.
+
+### Apa yang disebut "aman" di sini
+
+Sebuah langkah aman kalau ketiganya terpenuhi:
+
+1. **Tidak mungkin mengubah perilaku.** Yang dipindah nilai, tipe, atau fungsi
+   murni — bukan sesuatu yang punya state atau urutan.
+2. **Kompiler yang memverifikasi.** Kalau ada yang terlewat, build gagal. Bukan
+   sesuatu yang baru ketahuan saat dijalankan.
+3. **Bisa dibatalkan dalam satu commit.** Tidak ada langkah yang menuntut
+   langkah berikutnya untuk bisa dikompilasi.
+
+Lapis 4 (`Screen`, `ScreenContentViewModel`) gagal di ketiganya. Karena itu ia
+terakhir, bukan karena ia besar.
+
+### Tiga langkah pertama
+
+**Langkah 0 — jangan memecah dulu.** Buktikan flow transfer jalan di aplikasi:
+daftar muncul, tab dan pencarian bekerja, back kembali ke Dashboard, dan probe
+mencetak INIT/DEINIT berpasangan. Memecah lebih dulu hanya menambah satu
+variabel saat ada yang tidak beres — dan akan ada yang tidak beres.
+
+**Langkah 1 — `FlowKit`.** Isinya `Sources/Navigation` dan `Sources/Debug`.
+Satu-satunya keputusan: `.invisible()` di `LazyNavigationLink` ikut dibawa, atau
+diganti padanan di dalam package.
+
+Yang perlu `public` sedikit, dan bisa didaftar:
+
+| `public` | Dipakai project untuk |
+|---|---|
+| `AppRouter`, `PendingFlow`, `View.mountFlowRouter()` | membuka flow |
+| `FlowNavigator` beserta method-nya | dipegang coordinator |
+| `LazyNavigationLink` | layar yang masih `NavigationView` |
+| `LifecycleProbe`, `LifecycleTracker`, `RenderCounter` | probe dan pengukuran |
+| `PropertyBindable` | `useCase.binding(\.output.x)` |
+
+Sisanya biarkan internal — `FlowPresenter`, `FlowNavigationController`, dan
+`FlowStepHostingController` hanya dipakai dari dalam package. Kalau ada yang
+ternyata dibutuhkan project, kompiler yang memberi tahu.
+
+`trackForMemoryLeaks` masuk target test terpisah (`.testTarget`), bukan target
+utama.
+
+Selesai kalau: project build, flow transfer masih jalan, dan tidak ada satu
+baris pun flow lama yang berubah.
+
+**Langkah 2 — Lapis 1 saja.** Token, `TypeAliases`, extension `UIApplication`,
+konstanta. Semuanya daun, semuanya diverifikasi kompiler.
+
+Lalu **berhenti dan nilai ulang.** Dua langkah itu sudah memberi manfaat nyata
+dan tidak menuntut langkah ketiga. Lapis 2–4 baru masuk akal saat revamp benar
+benar dimulai, bukan sebelumnya.
+
+---
+
 ## Batasan yang menentukan segalanya
 
 **Package tidak bisa mengimpor App target.** Arahnya selalu satu:
