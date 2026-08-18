@@ -3,33 +3,42 @@
 Template untuk aplikasi SwiftUI dengan target minimum **iOS 13**, arsitektur
 MVVM + Coordinator.
 
-Isinya saat ini adalah bagian yang **tidak bergantung pada keputusan
-navigasi** — perkakas lifecycle, penegakan lewat test dan lint, serta
-dokumentasi aturannya. Bagian navigasi dan DI menyusul setelah keputusan di
-bawah diambil.
+Isinya empat lapis, dan urutan folder di bawah mengikuti cara memakainya:
+perkakas yang disalin sekali, template untuk menulis flow baru, dua fitur
+sebagai contoh, dan dokumentasi aturannya.
 
 ## Isi
 
 ```
-Sources/Debug/LifecycleProbe.swift         probe opt-in per class
-Sources/Debug/LifecycleTracker.swift       counter + checkpoint
-Sources/Debug/RenderCounter.swift          penghitung evaluasi body (sementara)
-Sources/Navigation/LazyNavigationLink.swift  destination yang ditunda
-Sources/Navigation/FlowNavigator.swift     navigasi flow sebagai objek
-Sources/Navigation/FlowNavigationController.swift  bar tersembunyi + swipe back
-Sources/Navigation/FlowStepHostingController.swift  penanda langkah di tumpukan
-Sources/Navigation/FlowPresenter.swift     titik temu NavigationView ↔ UIKit
-Sources/Navigation/AppRouter.swift         router global + pemasangannya
-Examples/TransferFlow/                     flow transfer berbasis UIKit
+── SALIN SEKALI, LALU LUPAKAN ─────────────────────────────────────────────
+Sources/Navigation/AppRouter.swift          router global + pemasangannya
+Sources/Navigation/FlowPresenter.swift      titik temu NavigationView ↔ UIKit
+Sources/Navigation/FlowNavigationController.swift  tumpukan + swipe back
+Sources/Navigation/FlowNavigator.swift      API navigasi untuk coordinator
+Sources/Navigation/FlowStepHostingController.swift  penanda langkah
+Sources/Navigation/LazyNavigationLink.swift  untuk layar yang masih NavigationView
+Sources/Debug/LifecycleProbe.swift          probe opt-in per class
+Sources/Debug/LifecycleTracker.swift        counter + checkpoint + snapshot
+Sources/Debug/RenderCounter.swift           penghitung evaluasi body (sementara)
 Sources/Support/PropertyBindable.swift      useCase.binding(\.output.x)
-Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
-Examples/DetailCardInfo/                   layar daun
-Examples/TransferLanding/                  layar berlist dengan banyak tujuan
-Examples/TransferLanding/TransferLandingFactory.swift  pembangunan tanpa navigasi
-Examples/Base/UseCase.swift                penjagaan base yang berlaku global
+Tests/Support/XCTestCase+MemoryLeak.swift   trackForMemoryLeaks
+
+── TEMPLATE UNTUK FLOW BARU ───────────────────────────────────────────────
+Examples/NewFeature/README.md               apa yang wajib, apa yang menyusul
+Examples/NewFeature/NewFeatureFlowCoordinator.swift  satu-satunya file wajib
+
+── SATU FITUR = SATU FOLDER ───────────────────────────────────────────────
+Examples/TransferFeature/Flow/              perutean flow transfer
+Examples/TransferFeature/Landing/           layar daftar penerima
+Examples/DetailCardInfo/                    layar daun, masih NavigationView
+
+── PERUBAHAN PADA BASE APLIKASI ───────────────────────────────────────────
+Examples/Base/UseCase.swift                 penjagaan base yang berlaku global
 Examples/Base/UseCase+PropertyBindable.swift  konformansi binding, terpisah
-Examples/Base/Screen.swift                 tanpa ScreenContentViewModel terbuang
-docs/STATUS.md                             status semua temuan
+Examples/Base/Screen.swift                  tanpa ScreenContentViewModel terbuang
+
+── DOKUMEN ────────────────────────────────────────────────────────────────
+docs/STATUS.md                              status semua temuan
 docs/NAVIGATION_DECISION.md                keputusan navigasi + urutan migrasi
 docs/TRANSFER_FLOW_SETUP.md                cara memulai flow transfer
 docs/MEASUREMENT_GUIDE.md                  cara mengukur dengan Instruments
@@ -52,20 +61,22 @@ isinya ke proyek, jangan di-build dari sini.
 Dua bagian yang perlu Anda sunting setelah menyalin. `stubbedForCardInfoTests()`
 di bagian bawah `DetailCardInfoScreenViewModelTests.swift` — bentuknya tebakan
 dari pemakaian `BankCard(.unspecified)`, jadi sesuaikan dengan inisialiser
-sebenarnya. Dan dua test terakhir di `TransferLandingViewModelTests.swift`
+sebenarnya. Dan dua test terakhir di `TransferFeature/Landing/TransferLandingViewModelTests.swift`
 membutuhkan `RecipientService` yang di-stub. Test lainnya berjalan apa adanya.
 
 ## Cara memakai
 
-Untuk menulis atau memigrasi sebuah layar, baca
-[docs/SCREEN_PATTERN.md](docs/SCREEN_PATTERN.md) — sebelas aturan beserta
-checklist migrasi, diturunkan dari satu bug nyata di layar Detail Debit Card
-Info (CVV dan nomor kartu kadang kosong).
+**Menulis flow baru** — salin `Examples/NewFeature/`. Satu file wajib, dan
+[README-nya](Examples/NewFeature/README.md) menjelaskan apa yang baru menyusul
+belakangan. Jangan menyalin `TransferFeature/`; itu bentuk setelah sebuah flow
+tumbuh besar.
 
-Kedua contoh di `Examples/` memakai bentuk yang sama. Satu-satunya percabangan:
-coordinator yang punya tujuan memisahkan "tautan dibangun" dari "tautan
-terpilih" — lihat bagian "Satu pola, satu penyesuaian untuk layar bercabang".
-Coordinator daun tidak perlu itu.
+**Memulai flow transfer** — [docs/TRANSFER_FLOW_SETUP.md](docs/TRANSFER_FLOW_SETUP.md).
+
+**Menulis atau memigrasi satu layar** —
+[docs/SCREEN_PATTERN.md](docs/SCREEN_PATTERN.md), sebelas aturan beserta
+checklist migrasi, diturunkan dari satu bug nyata di layar Detail Debit Card
+Info (CVV dan nomor kartu kadang kosong). Berlaku di kedua dunia navigasi.
 
 Untuk aturan lifecycle-nya, baca
 [docs/LIFECYCLE_RULES.md](docs/LIFECYCLE_RULES.md). Ringkasnya, ada tiga

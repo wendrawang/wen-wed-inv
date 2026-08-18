@@ -633,7 +633,7 @@ karena kelalaian.
 
 Langkah pertama yang nyata, dan satu-satunya yang berguna apa pun keputusan
 navigasi akhirnya. Contohnya sudah ada:
-[`TransferLandingFactory`](../Examples/TransferLanding/TransferLandingFactory.swift).
+[`TransferLandingFactory`](../Examples/TransferFeature/Landing/TransferLandingFactory.swift).
 
 Garis pemisahnya satu kalimat: **apa pun yang tidak menyebut tujuan, masuk
 factory.** UseCase beserta `input`-nya, judul, analytic, penyambungan ViewModel
