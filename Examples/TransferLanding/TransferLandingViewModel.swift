@@ -169,24 +169,24 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
     // boleh dihapus.
     private var accountHeadlineViewModelCache = [String: AccountHeadlineViewModel]()
 
-    // PERUBAHAN: pembungkus cache untuk `makeAccountHeadlineViewModel`.
+    // PERUBAHAN: pembungkus cache untuk `createAccountHeadlineViewModel`.
     private func accountHeadlineViewModel(
         for bankContact: BankContact
     ) -> AccountHeadlineViewModel {
-        let key = String(describing: bankContact.identifier)
+        let cacheKey = String(describing: bankContact.identifier)
 
-        if let cachedAccountHeadlineViewModel = accountHeadlineViewModelCache[key] {
+        if let cachedAccountHeadlineViewModel = accountHeadlineViewModelCache[cacheKey] {
             return cachedAccountHeadlineViewModel
         }
 
-        let accountHeadlineViewModel = makeAccountHeadlineViewModel(bankContact)
-        accountHeadlineViewModelCache[key] = accountHeadlineViewModel
+        let accountHeadlineViewModel = createAccountHeadlineViewModel(bankContact)
+        accountHeadlineViewModelCache[cacheKey] = accountHeadlineViewModel
         return accountHeadlineViewModel
     }
 
     // PERUBAHAN: isi loop dipindah ke fungsi ini supaya `[weak self]`-nya
     // terbaca. Isinya sama persis dengan versi lama.
-    private func makeAccountHeadlineViewModel(
+    private func createAccountHeadlineViewModel(
         _ bankContact: BankContact
     ) -> AccountHeadlineViewModel {
         let accountHeadlineViewModel = bankContact.convertToAccountHeadlineViewModel()
@@ -215,51 +215,6 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
         )
 
         return accountHeadlineViewModel
-    }
-
-    private func switchFavoriteState(_ bankContact: BankContact) {
-        if bankContact.isFavorite {
-            var message = DialogCodes.Client.removeRecipientFromFavorite.dialogMessage
-            // PERUBAHAN: `[weak self]`.
-            message.secondaryButton.customAction = { [weak self] in
-                self?.useCase.switchFavoriteState(bankContact: bankContact)
-            }
-            messageHandler(message, DefaultValues.emptyAnyDictionary)
-            return
-        }
-
-        useCase.switchFavoriteState(bankContact: bankContact)
-    }
-
-    private func startSubmission(recipientContact: BankContact) {
-        var event = AnalyticManager.instance.analytics.startInquiryTransferSavedRecipient
-        event.parameters = [
-            .categoryTitle: selectedTransferCategory.title
-        ]
-
-        AnalyticManager.instance.track(event)
-
-        useCase.startSubmission(
-            data: TransferRecipientUseCase.SubmissionData(
-                bank: recipientContact.accountInfo.bank.bankType == .domestic
-                    ? recipientContact.accountInfo.bank
-                    : Bank(),
-                identifier: recipientContact.identifier,
-                nickname: recipientContact.nickname,
-                accountName: recipientContact.accountInfo.accountName,
-                accountFullname: recipientContact.transferInfo.accountFullname,
-                accountNumber: recipientContact.accountInfo.accountNumber,
-                swiftCode: recipientContact.accountInfo.bank.bankType == .domestic
-                    ? DefaultValues.emptyString
-                    : recipientContact.accountInfo.bank.code,
-                transferCategory: recipientContact.transferInfo.transferCategory,
-                nationality: recipientContact.transferInfo.citizenship,
-                nccValue: recipientContact.transferInfo.nccValue,
-                address: recipientContact.address,
-                domicile: recipientContact.domicile,
-                accountCategory: recipientContact.accountCategory
-            )
-        )
     }
 
     private func setupView() {
@@ -394,73 +349,6 @@ class TransferLandingViewModel: PaginationScreenContentViewModel, TransactionalP
 }
 
 extension TransferLandingViewModel {
-    func setupPrivateBankAccountSelectionWidgetViewModel() {
-        privateAccountSelectionWidgetViewModel.adapter = BeneficiaryAccountSelectionAdapter(
-            analytic: AnalyticManager.instance.analytics.hitTransferAccountSelect
-        )
-
-        // PERUBAHAN: `[weak self]`.
-        privateAccountSelectionWidgetViewModel.onReceiveError = { [weak self] error in
-            self?.messageHandler(error.message, DefaultValues.emptyAnyDictionary)
-        }
-
-        privateAccountSelectionWidgetViewModel.setHeight(.infinity)
-        // PERUBAHAN: `[weak self]`.
-        privateAccountSelectionWidgetViewModel.onChangeValue = { [weak self] bankAccount in
-            self?.didSelectedPrivateBankAccount(bankAccount)
-        }
-    }
-
-    private func didSelectedPrivateBankAccount(_ bankAccount: BankAccount) {
-        useCase.startTransferToOwnAccount(
-            bankAccount: bankAccount,
-            transferCategory: selectedTransferCategory
-        )
-    }
-}
-
-extension TransferLandingViewModel {
-    func setupTransferCategoryViewModel() {
-        if !transferCategoryViewModel.categoryItemViewModels.isEmpty {
-            return
-        }
-
-        selectedTransferCategory = useCase.repository.transferCategory
-        transferCategoryViewModel.categoryItemViewModels = useCase
-            .repository
-            .transferCart
-            .availableNewTransferCategories
-            .convertToCategoryItemViewModels()
-
-        // PERUBAHAN: `[weak self]`.
-        transferCategoryViewModel.onSelectedItem = { [weak self] item in
-            self?.onSelectedCategoryItem(item)
-        }
-
-        transferCategoryViewModel.selectByValue(selectedTransferCategory.rawValue)
-    }
-
-    private func onSelectedCategoryItem(_ item: CategoryItemViewModel) {
-        let newSelectedTransferCategory = TransferCategory(
-            rawValue: item.value
-        ) ?? .unspecified
-
-        if selectedTransferCategory == newSelectedTransferCategory {
-            return
-        }
-
-        UIApplication.shared.endEditing()
-        selectedTransferCategory = newSelectedTransferCategory
-        searchBarViewModel.flushData()
-        bankSelectionAdapter.removeAllData()
-        bankSelectionAdapter.isValas = selectedTransferCategory == .valas
-        privateAccountSelectionWidgetViewModel.clearSelection()
-        useCase.setSelectedTransferCategory(selectedTransferCategory)
-        reloadData()
-    }
-}
-
-extension TransferLandingViewModel {
     private var responseRecipientTransfers: [TransferCategory: [ResponseRecipientList]] {[
         TransferCategory.idr: useCase.repository.responseRecipientDomesticTransfers,
         TransferCategory.valas: useCase.repository.responseRecipientForeignTransfers,
@@ -468,9 +356,3 @@ extension TransferLandingViewModel {
     ]}
 }
 
-// PERUBAHAN: konformansi baru, supaya coordinator bisa menulis
-// `viewModel.binding(\.activeDestinationCoordinatorName)`.
-//
-// Kalau nanti dibutuhkan di banyak layar, pindahkan ke
-// `ScreenContentViewModel` supaya seluruh ViewModel ikut.
-extension TransferLandingViewModel: PropertyBindable {}

@@ -61,7 +61,7 @@ class DetailCardInfoScreenViewModel: ScreenContentViewModel {
         super.init()
 
         navigationBarViewModel.isSecureContent = true
-        tipsViewModel = makeTipsViewModel()
+        tipsViewModel = createTipsViewModel()
 
         #if DEBUG
         lifecycleProbe = LifecycleProbe(self)
@@ -74,7 +74,7 @@ class DetailCardInfoScreenViewModel: ScreenContentViewModel {
     /// `loadData()`. Dipanggil coordinator sekali saat layar dibangun.
     func configure(with bankCard: BankCard) {
         bankCardType = bankCard.type
-        headerBankCardViewModel = makeHeaderBankCardViewModel(bankCard)
+        headerBankCardViewModel = createHeaderBankCardViewModel(bankCard)
     }
 
     func setUseCase(_ useCase: DetailCardInfoScreenUseCase) {
@@ -123,10 +123,10 @@ class DetailCardInfoScreenViewModel: ScreenContentViewModel {
         // `loadData()`. Konvensi ini berlaku sama di seluruh UseCase.
         let bankCard = useCase.repository.bankCard
 
-        cardNumberViewModel = makeCardNumberViewModel(bankCard)
-        cardExpiredViewModel = makeCardExpiredViewModel(bankCard)
-        cvvViewModel = makeCvvViewModel(bankCard)
-        phoneNumberViewModel = makePhoneNumberViewModel(bankCard)
+        cardNumberViewModel = createCardNumberViewModel(bankCard)
+        cardExpiredViewModel = createCardExpiredViewModel(bankCard)
+        cvvViewModel = createCvvViewModel(bankCard)
+        phoneNumberViewModel = createPhoneNumberViewModel(bankCard)
     }
 
     // MARK: - Pembangun sub-ViewModel
@@ -138,7 +138,7 @@ class DetailCardInfoScreenViewModel: ScreenContentViewModel {
     // kalau sub-ViewModel itu sendiri diamati. Satu gaya saja menghilangkan
     // seluruh kelas bug "nilainya berubah tapi layar tidak ikut berubah".
 
-    private func makeHeaderBankCardViewModel(
+    private func createHeaderBankCardViewModel(
         _ bankCard: BankCard
     ) -> HeaderBankCardViewModel {
         let viewModel = HeaderBankCardViewModel()
@@ -153,7 +153,7 @@ class DetailCardInfoScreenViewModel: ScreenContentViewModel {
         return viewModel
     }
 
-    private func makeCardNumberViewModel(
+    private func createCardNumberViewModel(
         _ bankCard: BankCard
     ) -> MenuItemViewModel {
         let cardNumber = bankCard.number
@@ -186,7 +186,7 @@ class DetailCardInfoScreenViewModel: ScreenContentViewModel {
         return viewModel
     }
 
-    private func makeCardExpiredViewModel(
+    private func createCardExpiredViewModel(
         _ bankCard: BankCard
     ) -> DescriptionVerticalViewModel {
         let expiredDate = bankCard.expiration
@@ -202,7 +202,7 @@ class DetailCardInfoScreenViewModel: ScreenContentViewModel {
         )
     }
 
-    private func makeCvvViewModel(
+    private func createCvvViewModel(
         _ bankCard: BankCard
     ) -> DescriptionVerticalViewModel {
         let cvv = bankCard.cvv
@@ -216,7 +216,7 @@ class DetailCardInfoScreenViewModel: ScreenContentViewModel {
         )
     }
 
-    private func makePhoneNumberViewModel(
+    private func createPhoneNumberViewModel(
         _ bankCard: BankCard
     ) -> DescriptionVerticalViewModel {
         DescriptionVerticalViewModel(
@@ -226,7 +226,7 @@ class DetailCardInfoScreenViewModel: ScreenContentViewModel {
         )
     }
 
-    private func makeTipsViewModel() -> TipsViewModel {
+    private func createTipsViewModel() -> TipsViewModel {
         let viewModel = TipsViewModel()
 
         viewModel.iconImageViewModel.setImage(

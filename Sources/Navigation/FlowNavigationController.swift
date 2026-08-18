@@ -26,6 +26,18 @@ final class FlowIslandHostingController<
 ///    tumpukan hanya berisi satu layar.
 final class FlowNavigationController: UINavigationController {
 
+    /// Pemilik coordinator flow, dan satu-satunya referensi kuat kepadanya.
+    ///
+    /// Coordinator flow adalah class, dan seluruh layar hanya menyebutnya lewat
+    /// `[weak self]` — jadi tanpa satu pemilik yang tegas, ia lepas begitu
+    /// `createStack` selesai. Ditaruh di sini karena umurnya memang harus persis
+    /// sama dengan umur tumpukannya: modal ditutup, controller ini dilepas,
+    /// coordinator ikut lepas, dan seluruh ViewModel di dalamnya menyusul.
+    ///
+    /// Arah kepemilikannya sengaja satu arah dan tidak melingkar:
+    /// controller → coordinator → navigator → (weak) controller.
+    var flowCoordinator: AnyObject?
+
     override func viewDidLoad() {
         super.viewDidLoad()
 

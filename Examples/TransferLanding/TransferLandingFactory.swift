@@ -62,16 +62,16 @@ extension TransferLandingFactory {
     /// Ini yang dipakai kedua dunia navigasi: `NavigationView` menaruhnya di
     /// dalam `LazyNavigationLink`, `UINavigationController` mendorongnya lewat
     /// `FlowNavigator.push`.
-    func makeScreen(routing: Routing) -> some View {
+    func createScreen(routing: Routing) -> some View {
         Screen {
-            TransferLandingScreen(viewModel: makeViewModel(routing: routing))
+            TransferLandingScreen(viewModel: createViewModel(routing: routing))
         }
     }
 
     /// ViewModel yang sudah lengkap — termasuk UseCase-nya, yang bisa dibaca
     /// lagi lewat `viewModel.useCase` kalau pemanggil membutuhkannya.
-    func makeViewModel(routing: Routing) -> TransferLandingViewModel {
-        let useCase = makeUseCase()
+    func createViewModel(routing: Routing) -> TransferLandingViewModel {
+        let useCase = createUseCase()
         let viewModel = TransferLandingViewModel()
 
         viewModel.navigationBarViewModel.title = navigationTitle()
@@ -88,7 +88,7 @@ extension TransferLandingFactory {
         return viewModel
     }
 
-    private func makeUseCase() -> TransferLandingUseCase {
+    private func createUseCase() -> TransferLandingUseCase {
         let useCase = TransferLandingUseCase()
 
         useCase.renewIdentifier()

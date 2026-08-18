@@ -31,7 +31,7 @@ final class TransferLandingViewModelTests: XCTestCase {
     /// ViewModel menyimpan UseCase sementara UseCase menyimpan closure yang
     /// menahan ViewModel.
     func testViewModelAndUseCaseAreReleased() {
-        let useCase = makeUseCase()
+        let useCase = createUseCase()
         let sut = TransferLandingViewModel()
 
         sut.setUseCase(useCase)
@@ -53,7 +53,7 @@ final class TransferLandingViewModelTests: XCTestCase {
     func testFactoryBuiltViewModelIsReleased() {
         let factory = TransferLandingFactory(transferCart: TransferCart())
 
-        let sut = factory.makeViewModel(
+        let sut = factory.createViewModel(
             routing: TransferLandingFactory.Routing(
                 onRequestNewRecipient: { _ in },
                 onSubmissionSucceed: { _ in }
@@ -80,7 +80,7 @@ final class TransferLandingViewModelTests: XCTestCase {
     // |---|---|
     // | `testInitStateDoesNotRetain…` | `initState()` — kandidat utama `activateDebounceInput()` pada `searchBarViewModel`, kalau langganannya menangkap `self` kuat |
     // | `testLoadDataDoesNotRetain…` saja | `loadData()` — kandidat utama `super.loadData()` di base pagination, lewat `infiniteScrollViewModel` |
-    // | hanya `testRowActions…` | pemasangan aksi per baris, jadi di `makeAccountHeadlineViewModel` |
+    // | hanya `testRowActions…` | pemasangan aksi per baris, jadi di `createAccountHeadlineViewModel` |
 
     /// Memisahkan `initState()` dari `loadData()`.
     ///
@@ -89,7 +89,7 @@ final class TransferLandingViewModelTests: XCTestCase {
     /// secara kuat sementara cancellable-nya disimpan di ViewModel, lingkarannya
     /// tertutup di situ — bukan di daftar.
     func testInitStateDoesNotRetainViewModel() {
-        let useCase = makeUseCase()
+        let useCase = createUseCase()
         let sut = TransferLandingViewModel()
 
         sut.setUseCase(useCase)
@@ -105,7 +105,7 @@ final class TransferLandingViewModelTests: XCTestCase {
     /// bermakna: `setupView()` dan `super.loadData()` sudah berjalan, dan
     /// keduanya cukup untuk membentuk lingkaran kalau ada.
     func testLoadDataDoesNotRetainViewModel() {
-        let useCase = makeUseCase()
+        let useCase = createUseCase()
         let sut = TransferLandingViewModel()
 
         sut.setUseCase(useCase)
@@ -131,7 +131,7 @@ final class TransferLandingViewModelTests: XCTestCase {
     /// ada yang bocor — pakai `testLoadDataDoesNotRetainViewModel` di atas untuk
     /// pertanyaan kebocorannya, karena ia tidak butuh stub.
     func testRowActionsDoNotRetainViewModel() {
-        let useCase = makeUseCase()
+        let useCase = createUseCase()
         let sut = TransferLandingViewModel()
 
         sut.setUseCase(useCase)
@@ -161,7 +161,7 @@ final class TransferLandingViewModelTests: XCTestCase {
     /// mengembalikan cukup banyak kontak — dua puluh atau lebih. Dengan
     /// segelintir baris, versi lama pun bisa lolos ambang ini.
     func testPopulatingListPublishesOnlyOnce() {
-        let useCase = makeUseCase()
+        let useCase = createUseCase()
         let sut = TransferLandingViewModel()
 
         sut.setUseCase(useCase)
@@ -191,7 +191,7 @@ final class TransferLandingViewModelTests: XCTestCase {
 
     // MARK: - Bantuan
 
-    private func makeUseCase() -> TransferLandingUseCase {
+    private func createUseCase() -> TransferLandingUseCase {
         let useCase = TransferLandingUseCase()
 
         useCase.renewIdentifier()

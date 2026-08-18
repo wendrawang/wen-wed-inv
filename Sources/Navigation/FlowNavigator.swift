@@ -27,16 +27,25 @@ final class FlowNavigator {
     /// mempresentasikan yang menutup.
     var onFinish: TypeAliasesVoidHandler = { return }
 
-    private weak var navigationController: UINavigationController?
+    private weak var navigationController: FlowNavigationController?
 
-    init(navigationController: UINavigationController) {
+    init(navigationController: FlowNavigationController) {
         self.navigationController = navigationController
     }
 
-    func push<Content: View>(_ content: Content, animated: Bool = true) {
+    /// Menitipkan coordinator flow supaya umurnya mengikuti umur tumpukan.
+    ///
+    /// Dipanggil sekali oleh coordinator saat ia dibuat. Tanpa ini, coordinator
+    /// lepas begitu `createStack` selesai — seluruh layar hanya menyebutnya
+    /// lewat `[weak self]`, jadi tidak ada satu pun yang memilikinya.
+    func retainForFlowLifetime(_ flowCoordinator: AnyObject) {
+        navigationController?.flowCoordinator = flowCoordinator
+    }
+
+    func push<Content: View>(_ content: Content, isAnimated: Bool = true) {
         navigationController?.pushViewController(
             UIHostingController(rootView: content),
-            animated: animated
+            animated: isAnimated
         )
     }
 
@@ -54,7 +63,7 @@ final class FlowNavigator {
     /// split view, dan `FlowIslandHostingController` menandai controller-nya
     /// supaya gestur swipe-back milik UIKit tidak bertabrakan dengan gestur
     /// milik `NavigationView` di dalamnya.
-    func pushIsland<Content: View>(_ content: Content, animated: Bool = true) {
+    func pushIsland<Content: View>(_ content: Content, isAnimated: Bool = true) {
         let island = NavigationView {
             content
         }
@@ -62,7 +71,7 @@ final class FlowNavigator {
 
         navigationController?.pushViewController(
             FlowIslandHostingController(rootView: island),
-            animated: animated
+            animated: isAnimated
         )
     }
 
@@ -72,21 +81,23 @@ final class FlowNavigator {
     /// mendorong beberapa layar berturut-turut, tetapi dengan menyatakan
     /// tumpukan akhirnya. Coordinator yang menentukan tombol back-nya membawa ke
     /// mana — dengan menyertakan layar sebelumnya atau tidak.
-    func setStack(_ controllers: [UIViewController], animated: Bool = false) {
-        navigationController?.setViewControllers(controllers, animated: animated)
+    func setStack(_ controllers: [UIViewController], isAnimated: Bool = false) {
+        navigationController?.setViewControllers(controllers, animated: isAnimated)
     }
 
     /// Membungkus satu layar menjadi controller, untuk disusun lewat `setStack`.
-    func controller<Content: View>(for content: Content) -> UIViewController {
+    func createController<Content: View>(
+        for content: Content
+    ) -> UIViewController {
         UIHostingController(rootView: content)
     }
 
-    func pop(animated: Bool = true) {
-        navigationController?.popViewController(animated: animated)
+    func pop(isAnimated: Bool = true) {
+        navigationController?.popViewController(animated: isAnimated)
     }
 
-    func popToRoot(animated: Bool = true) {
-        navigationController?.popToRootViewController(animated: animated)
+    func popToRoot(isAnimated: Bool = true) {
+        navigationController?.popToRootViewController(animated: isAnimated)
     }
 
     /// Mundur ke layar tertentu di dalam flow ini.
@@ -94,19 +105,19 @@ final class FlowNavigator {
     /// Inilah yang tidak punya padanan di `NavigationView`, dan yang selalu
     /// dibutuhkan flow transaksi: setelah konfirmasi berhasil, kembalinya bukan
     /// satu langkah dan bukan ke root, tetapi ke satu titik tertentu.
-    func popTo(stepsBack: Int, animated: Bool = true) {
+    func popTo(stepsBack: Int, isAnimated: Bool = true) {
         guard let navigationController = navigationController else { return }
 
         let targetIndex = navigationController.viewControllers.count - 1 - stepsBack
 
         guard targetIndex >= 0 else {
-            navigationController.popToRootViewController(animated: animated)
+            navigationController.popToRootViewController(animated: isAnimated)
             return
         }
 
         navigationController.popToViewController(
             navigationController.viewControllers[targetIndex],
-            animated: animated
+            animated: isAnimated
         )
     }
 

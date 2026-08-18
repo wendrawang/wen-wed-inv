@@ -22,7 +22,7 @@ import UIKit
 /// )
 /// ```
 ///
-/// `makeStack` mengembalikan **seluruh tumpukan**, bukan hanya layar pertama.
+/// `createStack` mengembalikan **seluruh tumpukan**, bukan hanya layar pertama.
 /// Itu yang membuat "masuk ke tengah flow" menjadi kemampuan biasa, bukan
 /// tambalan: coordinator menyusun `[landing, amount]` kalau tombol back harus
 /// membawa ke landing, atau `[amount]` saja kalau back harus keluar dari flow.
@@ -37,7 +37,7 @@ struct FlowPresenter: UIViewControllerRepresentable {
     @Binding var isPresented: Bool
 
     /// Menyusun tumpukan awal flow. Dipanggil **sekali**, saat flow dibuka.
-    let makeStack: (FlowNavigator) -> [UIViewController]
+    let createStack: (FlowNavigator) -> [UIViewController]
 
     func makeUIViewController(context: Context) -> UIViewController {
         UIViewController()
@@ -86,13 +86,13 @@ extension FlowPresenter {
             return
         }
 
-        let flowNavigationController = makeFlowNavigationController()
+        let flowNavigationController = createFlowNavigationController()
 
         context.coordinator.flowNavigationController = flowNavigationController
         host.present(flowNavigationController, animated: true)
     }
 
-    private func makeFlowNavigationController() -> FlowNavigationController {
+    private func createFlowNavigationController() -> FlowNavigationController {
         let flowNavigationController = FlowNavigationController()
         flowNavigationController.modalPresentationStyle = .fullScreen
 
@@ -108,7 +108,7 @@ extension FlowPresenter {
         }
 
         flowNavigationController.setViewControllers(
-            makeStack(navigator),
+            createStack(navigator),
             animated: false
         )
 
