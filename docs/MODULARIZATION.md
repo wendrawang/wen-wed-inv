@@ -1,178 +1,205 @@
 # Memecah ke local SPM
 
-Bisa, dan naluri Anda soal Alamofire benar. Dokumen ini bentuk yang disarankan,
-urutan mengerjakannya, dan dua biaya yang sering diremehkan.
+Rencana untuk kondisi Anda: **networking tetap di project yang ada**, yang
+dipindah ke package hanya navigasi dan flow fitur baru — supaya flow lama tidak
+tersenggol sama sekali, sekaligus persiapan revamp.
 
 ---
 
-## Isi `Sources/` sudah hampir siap
+## Batasan yang menentukan segalanya
 
-Bukan klaim, ini bisa diperiksa: seluruh `Sources/` hanya mengimpor `SwiftUI`,
-`UIKit`, `Foundation`, dan `os.log`. Satu-satunya pemakaian tipe milik aplikasi
-adalah `.invisible()` di `LazyNavigationLink` — sudah ditandai di kodenya.
+**Package tidak bisa mengimpor App target.** Arahnya selalu satu:
+App → Package. Jadi apa pun yang masuk package tidak boleh menyebut satu pun
+tipe yang tinggal di project.
 
-Karena itu `Sources/Navigation` dan `Sources/Debug` adalah **package pertama
-yang paling murah**, dan itu yang sebaiknya dikerjakan lebih dulu: setup SPM-nya
-terbukti tanpa menyentuh apa pun yang berisiko.
+Itu terdengar sepele sampai dihitung. Ini yang disebut layar transfer kita hari
+ini, semuanya milik project:
+
+| Tipe | Muncul | Jenis |
+|---|---|---|
+| `Spaces`, `IconSizes`, `Currencies` | 21× | design token |
+| `DefaultValues` | 13× | konstanta |
+| `R.string`, `R.image` | 12× | resource |
+| `AnalyticManager` | 6× | layanan |
+| `Screen`, `ScreenContentViewModel`, `PaginationScreenContentViewModel` | 7× | base UI |
+| `AutomationIdentifierManager`, `DialogCodes`, `TypeAliases` | 5× | lain-lain |
+
+Selama itu semua di project, **layar transfer yang ada tidak bisa pindah ke
+package** — dan memaksakannya berarti menyeret hampir seluruh base UI ikut
+pindah, yang justru menyenggol semua flow lama. Kebalikan dari yang Anda mau.
 
 ---
 
-## Bentuk yang disarankan
+## Karena itu: dua tahap, bukan satu
+
+### Tahap 1 — sekarang: satu package, dan itu saja
 
 ```
 Packages/
-  Core/                        satu package, beberapa target
-    CoreNavigation             FlowNavigator, AppRouter, FlowPresenter, …
-    CoreDebug                  LifecycleProbe, LifecycleTracker, RenderCounter
-    CoreDomain                 UseCase base, TypeAliases, model bersama
-    CoreNetworking             ← protokol saja, nol dependensi
-    CoreNetworkingAlamofire    ← implementasinya, hanya di sini Alamofire ada
-    CoreUI                     Screen, ScreenContentViewModel, komponen, R.*
-
-  TransferFeature/             satu package per fitur
-  PaymentFeature/
-  DashboardFeature/
-
-App target                     satu-satunya yang tahu seluruh graf
+  FlowKit/                    ← Sources/Navigation + Sources/Debug
 ```
 
-**Core satu package dengan beberapa target**, bukan enam package terpisah.
-Isinya berubah bersamaan, dan satu `Package.swift` jauh lebih cepat diurus.
+`FlowKit` sudah siap hari ini. Seluruh `Sources/` hanya mengimpor `SwiftUI`,
+`UIKit`, `Foundation`, dan `os.log`. Satu-satunya yang menyebut tipe project
+adalah `.invisible()` di `LazyNavigationLink` — sudah ditandai di kodenya, dan
+pilihannya dua: bawa modifier-nya ikut ke package, atau ganti dengan padanan di
+dalam package.
 
-**Satu package per fitur**, bukan satu package `Features` berisi semua. Batasnya
-justru itu yang Anda inginkan: fitur tidak boleh saling impor, dan package
-terpisah membuat kompilernya yang menegakkan, bukan kesepakatan.
+Yang **tetap di project**: seluruh networking, `TransferFlowCoordinator`,
+`TransferLandingFactory`, dan semua layarnya. Flow coordinator itu satu file dan
+tidak masalah tinggal di project — ia memakai `FlowKit`, bukan sebaliknya.
+
+Hasil tahap ini sudah nyata: flow baru dibangun di atas package yang dependensinya
+nol, dan tidak ada satu baris pun flow lama yang tersentuh.
+
+### Tahap 2 — saat revamp: fitur baru lahir langsung sebagai package
+
+Fitur **baru** tidak punya utang ke base UI lama, jadi ia bisa berdiri sebagai
+package sejak hari pertama:
+
+```
+Packages/
+  FlowKit/                    navigasi + lifecycle
+  UIKitchen/                  Screen baru, token, komponen — untuk fitur baru
+  PaymentFeature/             fitur revamp pertama
+```
+
+Fitur lama pindah belakangan, satu per satu, saat base UI-nya sudah punya
+padanan di `UIKitchen`. Tidak ada momen "pindah semua sekaligus".
 
 ---
 
-## Networking: naluri Anda benar, tapi satu langkah lagi
+## Networking tetap di project — lalu bagaimana package memanggilnya?
 
-Menaruh pemanggilan API di Core memang tepat. Tetapi kalau protokol dan
-implementasi Alamofire ada di **target yang sama**, setiap fitur yang memakai
-networking ikut me-link Alamofire, dan siapa pun tetap bisa menulis
-`import Alamofire` di dalam fitur.
-
-Pisahkan satu langkah lagi:
+Package mendeklarasikan **apa yang ia butuhkan**, project yang memenuhinya.
 
 ```swift
-// CoreNetworking — nol dependensi, tidak tahu Alamofire ada
-public protocol HTTPClient {
-    func send<Response: Decodable>(
-        _ request: HTTPRequest,
-        completion: @escaping (Result<Response, HTTPError>) -> Void
+// di dalam PaymentFeature (package)
+public protocol BillFetching {
+    func fetchBills(
+        for accountNumber: String,
+        completion: @escaping (Result<[Bill], Error>) -> Void
     )
 }
-
-// CoreNetworkingAlamofire — satu-satunya target yang menyebut Alamofire
-import Alamofire
-
-public final class AlamofireHTTPClient: HTTPClient { … }
 ```
 
-| Target | Bergantung pada | Dipakai oleh |
-|---|---|---|
-| `CoreNetworking` | tidak ada | semua fitur |
-| `CoreNetworkingAlamofire` | Alamofire | **hanya App target** |
+```swift
+// di project — Alamofire, session, header, semua tetap di sini
+extension BillService: BillFetching {}
 
-Hasilnya tiga hal sekaligus: fitur tidak pernah melihat Alamofire bahkan secara
-transitif, mengganti Alamofire dengan `URLSession` nanti menyentuh satu target,
-dan test fitur cukup memberi `HTTPClient` palsu tanpa menyentuh jaringan.
+// di composition root
+PaymentFlowCoordinator(navigator: navigator, billFetching: BillService())
+```
 
-**Service milik fitur tetap di fitur.** `RecipientService` memakai `HTTPClient`
-dan tinggal di `TransferFeature`. Yang di Core hanya yang benar-benar dipakai
-lintas fitur — sesi, auth, refresh token.
+Alamofire tidak pernah masuk package, dan package tidak tahu Alamofire ada.
+Anda juga tidak perlu memindahkan satu baris pun kode networking — cukup satu
+`extension` sebaris di project untuk menyatakan bahwa service yang sudah ada
+memenuhi protokolnya.
+
+Efek sampingnya bagus: test fitur cukup memberi implementasi palsu, tanpa
+jaringan dan tanpa menyentuh project.
 
 ---
 
-## Satu hal yang akan Anda temui: fitur tidak boleh saling impor
+## Fitur tidak boleh saling impor
 
-Dashboard membuka transfer. Kalau Dashboard memanggil
-`AppRouter.shared.start(.transfer(...))`, `DashboardFeature` harus mengimpor
-`TransferFeature` — dan Dashboard menuju ke mana-mana, jadi ia akan bergantung
-pada **semua** fitur.
+Dashboard menuju ke mana-mana. Kalau Dashboard memanggil
+`AppRouter.shared.start(.payment(...))`, ia harus mengimpor `PaymentFeature` —
+dan akhirnya bergantung pada semua fitur.
 
-Jawabannya pola yang sudah kita pakai di tingkat layar: **fitur menyatakan
-niat sebagai closure, App target yang memetakannya.**
+Polanya sama dengan yang sudah kita pakai di tingkat layar: fitur menyatakan
+niat sebagai closure, **project** yang memetakannya.
 
 ```swift
-// DashboardFeature — tidak tahu transfer ada
-public struct DashboardRouting {
-    public var onSelectTransfer: () -> Void
-    public var onSelectPayment: () -> Void
-}
-
-// App target — satu-satunya yang melihat seluruh graf
-DashboardFactory(
-    routing: DashboardRouting(
-        onSelectTransfer: {
-            AppRouter.shared.start(.transfer(transferCart: TransferCart()))
-        },
-        onSelectPayment: {
-            AppRouter.shared.start(.payment(billNumber: ""))
-        }
-    )
+// di project — satu-satunya yang melihat seluruh graf
+DashboardRouting(
+    onSelectPayment: {
+        AppRouter.shared.start(.payment(billNumber: ""))
+    }
 )
 ```
 
-`extension PendingFlow { static func transfer(…) }` tetap tinggal di
-`TransferFeature`. Yang memanggilnya hanya App target.
+`extension PendingFlow { static func payment(…) }` tinggal di package fitur.
+Yang memanggilnya hanya project.
 
-Ini persis alasan `TransferLandingFactory.Routing` dibuat: masalahnya sama,
-hanya skalanya berbeda.
-
----
-
-## Dua biaya yang sering diremehkan
-
-**`public` di mana-mana.** Semua yang dipakai lintas package harus `public`,
-termasuk inisialisernya — dan inisialiser `public` tidak dibuatkan otomatis
-untuk struct. Untuk ratusan layar ini pekerjaan mekanis yang panjang. Kerjakan
-per package, jangan sekaligus.
-
-**Resource dan `R.swift`.** `R.string.…`, `R.image.…` ada di hampir setiap file.
-Saat sebuah fitur pindah ke package, asset dan string-nya ikut pindah, dan
-`R` yang dihasilkan menjadi **per-module** — jadi setiap referensi lintas modul
-harus diputuskan: ikut pindah, atau naik ke `CoreUI`. Ini biasanya bagian
-terbesar dari pekerjaan, dan sebaiknya diputuskan sebelum package fitur pertama
-dibuat, bukan sesudah.
-
-Yang **tidak** menjadi masalah: SwiftUI Preview lintas package jalan normal, dan
-`#if DEBUG` di `CoreDebug` tetap bekerja seperti biasa.
+Ini alasan `TransferLandingFactory.Routing` dibuat. Masalah yang sama, skala
+berbeda.
 
 ---
 
-## Urutan
+## Backward: dari tengah flow UIKit ke SwiftUI, lalu kembali
 
-1. **`CoreNavigation` + `CoreDebug`.** Nol dependensi, dan `.invisible()` satu
-   satunya yang perlu diputuskan. Kalau setup SPM-nya bermasalah, ketahuannya di
-   sini, saat belum ada yang bergantung padanya.
-2. **`CoreNetworking` + `CoreNetworkingAlamofire`.** Pindahkan protokolnya dulu,
-   implementasinya menyusul. Setelah ini App target satu-satunya yang menyebut
-   Alamofire.
-3. **`CoreDomain` + `CoreUI`.** Di sinilah persoalan `R.swift` muncul.
-   Selesaikan di sini, sekali, untuk semua fitur.
-4. **`TransferFeature`.** Fitur pertama, dan sengaja yang sudah kita rapikan —
-   flow-nya satu file, layarnya sudah bersih, factory-nya sudah terpisah.
-5. Fitur berikutnya mengikuti.
+Dua kasus, dan jawabannya berbeda. Yang sering tertukar justru ini.
 
-Langkah 3 yang paling berat. Kalau waktunya belum ada, berhenti di langkah 2 —
-dua langkah pertama sudah memberi manfaat nyata dan tidak menuntut langkah
-ketiga.
+### Kasus A — layar SwiftUI-nya masuk ke tumpukan flow
+
+```swift
+navigator.push(Screen { LayarLama(viewModel: vm) })
+navigator.pushIsland(CoordinatorLama(...))          // rangkaian, bukan satu layar
+```
+
+Layarnya berada di tumpukan yang sama, jadi **kembalinya pop biasa** — tombol
+back maupun swipe. Flow tidak pernah ditinggalkan, state-nya utuh, dan
+`goBack(to:)` bisa melompati layar itu.
+
+**Ini yang Anda mau di hampir semua kasus.**
+
+### Kasus B — benar-benar keluar ke dunia `NavigationView` lama
+
+Kalau tujuannya adalah layar yang tinggal di tumpukan `NavigationView` milik
+Dashboard, maka flow-nya **ditutup**, bukan ditumpuk. Setelah itu tidak ada
+"kembali ke flow" — tumpukannya sudah dilepas beserta seluruh ViewModel-nya.
+
+Kalau pengguna harus kembali, jalannya membuka flow lagi **pada langkah
+tertentu**, bukan dari awal:
+
+```swift
+// menutup flow sambil menyerahkan hasilnya ke dunia SwiftUI
+navigator.finish()
+
+// nanti, masuk lagi di tengah
+AppRouter.shared.start(.transfer(transferCart: cart))   // + parameter langkahnya
+```
+
+`FlowNavigator.setStack` dan `createController(for:stepIdentifier:)` ada persis
+untuk itu: coordinator menyusun `[landing, langkahTujuan]` supaya tombol
+back-nya tetap masuk akal.
+
+### Aturannya satu kalimat
+
+**Selama masih di dalam perjalanan yang sama, pakai `push`/`pushIsland` — jangan
+menutup flow.** Menutup flow adalah "perjalanan ini selesai", bukan "pindah
+layar".
+
+---
+
+## Dua biaya yang tetap ada
+
+**`public` di mana-mana**, termasuk inisialiser — dan inisialiser `public` tidak
+dibuatkan otomatis untuk struct. Untuk `FlowKit` ini pekerjaan setengah jam;
+untuk package fitur nanti, jauh lebih panjang.
+
+**`R.swift` menjadi per-module.** Ini yang paling menentukan di tahap 2, dan
+sebaiknya diputuskan sebelum package fitur pertama dibuat: resource fitur ikut
+pindah, atau naik ke package UI bersama. Di tahap 1 tidak muncul sama sekali,
+karena `FlowKit` tidak menyentuh resource.
 
 ---
 
 ## Kaitannya dengan revamp
 
-Dua keputusan yang sudah diambil justru mempermudah pemecahan ini, dan itu bukan
+Dua keputusan yang sudah diambil mempermudah pemecahan ini, dan itu bukan
 kebetulan:
 
 - **Coordinator sebagai objek, bukan `View`.** Coordinator berbentuk view harus
   duduk di dalam pohon view, jadi batas package akan memotong di tempat yang
-  salah. Sebagai objek, ia bisa tinggal di package fitur tanpa menyeret apa pun.
-- **Router global yang tidak tahu daftar tujuan.** `AppRouter` di `CoreNavigation`
-  tidak menyebut satu pun fitur, jadi Core tidak pernah bergantung ke atas.
-  Kalau daftar tujuannya global, Core akan bergantung pada semua fitur — dan
-  graf-nya melingkar.
+  salah. Sebagai objek, ia bisa tinggal di mana pun — project sekarang, package
+  nanti — tanpa mengubah apa pun di sekitarnya.
+- **Router global yang tidak tahu daftar tujuan.** `AppRouter` tidak menyebut
+  satu pun fitur, jadi `FlowKit` tidak pernah bergantung ke atas. Kalau daftar
+  tujuannya global, package akan bergantung pada semua fitur dan graf-nya
+  melingkar.
 
-Jadi urutannya masuk akal: buktikan navigasinya di satu flow lebih dulu, lalu
-pecah. Bukan sebaliknya.
+Urutan yang disarankan tetap sama: buktikan navigasinya di satu flow lebih
+dulu, baru pindahkan `FlowKit` ke package. Memindahkan lebih dulu hanya
+menambah satu variabel saat ada yang tidak beres.
