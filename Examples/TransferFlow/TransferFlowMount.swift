@@ -1,84 +1,107 @@
 import SwiftUI
 
-extension View {
+/// Pendaftaran flow transfer ke router global.
+///
+/// **Ini seluruh biaya menambahkan sebuah flow**: satu `static func` di file
+/// milik flow itu sendiri. `AppRouter` tidak ikut berubah, dan tidak akan
+/// pernah ikut tumbuh berapa pun flow yang ditambahkan.
+///
+/// Flow berikutnya bentuknya sama persis:
+///
+/// ```swift
+/// extension PendingFlow {
+///     static func payment(_ route: PaymentRoute) -> PendingFlow {
+///         PendingFlow { navigator in
+///             PaymentFlowCoordinator(navigator: navigator, screenFactories: .live)
+///                 .createStack(enteringAt: route)
+///         }
+///     }
+/// }
+/// ```
+extension PendingFlow {
 
-    /// Memasang flow transfer. Cukup **sekali**, di layar paling luar.
-    ///
-    /// Setelah terpasang, seluruh aplikasi bisa membuka flow ini tanpa
-    /// menyentuh view mana pun:
+    /// Membuka flow transfer pada rute tertentu.
     ///
     /// ```swift
-    /// transferFlowEntry.start(
-    ///     .landing(transferCart: TransferCart(), category: .idr)
+    /// AppRouter.shared.start(
+    ///     .transfer(.landing(transferCart: cart, category: .idr))
     /// )
     /// ```
     ///
-    /// Dipasang di layar terluar, bukan di Dashboard, supaya flow-nya bisa
-    /// dibuka dari tab mana pun — termasuk dari layar yang sedang tampil di
-    /// atas Dashboard.
-    func mountTransferFlow(
-        screenFactories: TransferScreenFactories
-    ) -> some View {
-        modifier(
-            FlowEntryModifier(entryStore: transferFlowEntry) { navigator, route in
-                TransferFlowCoordinator(
-                    navigator: navigator,
-                    screenFactories: screenFactories
-                )
-                .createStack(enteringAt: route)
-            }
-        )
+    /// `screenFactories` punya nilai default supaya call site tetap satu baris,
+    /// tetapi tetap bisa diganti di test tanpa menyentuh apa pun yang global.
+    static func transfer(
+        _ route: TransferRoute,
+        screenFactories: TransferScreenFactories = .live
+    ) -> PendingFlow {
+        PendingFlow { navigator in
+            TransferFlowCoordinator(
+                navigator: navigator,
+                screenFactories: screenFactories
+            )
+            .createStack(enteringAt: route)
+        }
     }
 }
 
 // =============================================================================
+// YANG HARUS ANDA SEDIAKAN
+//
+// `TransferScreenFactories.live` belum ada di repo ini, dan itu disengaja —
+// tujuh layar tujuannya belum pernah saya lihat, jadi menuliskannya berarti
+// menebak. Kompilernya akan menagih Anda, dan itu memang yang diinginkan:
+//
+//     extension TransferScreenFactories {
+//         static let live = TransferScreenFactories(
+//             createNewRecipient: { useCase, category in ... },
+//             createTransactionAmount: { useCase in ... },
+//             ...
+//         )
+//     }
+//
+// Sebelum sebuah tujuan punya factory-nya sendiri, jembatan sementaranya
+// `navigator.pushIsland(CoordinatorLamaNya(...))` — lihat bagian di bawah.
+// =============================================================================
+
+// =============================================================================
 // MENYEBERANG ANTAR DUNIA
 //
-// Empat arah, dan semuanya sudah punya jalannya. Ditulis di sini supaya ada di
-// dekat kodenya, bukan hanya di dokumen.
+// Empat arah, ditulis di sini supaya ada di dekat kodenya.
 //
 //
 // 1. SwiftUI → awal flow transfer
 //
-//    transferFlowEntry.start(.landing(transferCart: cart, category: .idr))
-//
-//    Tidak perlu `@State`, tidak perlu `Binding`, tidak perlu berada dekat
-//    dengan layar tujuan.
+//    AppRouter.shared.start(.transfer(.landing(transferCart: cart, category: .idr)))
 //
 //
 // 2. SwiftUI → tengah flow transfer
 //
-//    transferFlowEntry.start(.transactionAmount(useCase: useCase))
+//    AppRouter.shared.start(.transfer(.transactionAmount(useCase: useCase)))
 //
 //    Sama persis, hanya rutenya yang berbeda. Coordinator menyusun landing di
 //    bawah dan tujuannya di atas, jadi tombol back tetap masuk akal. Kalau
-//    sebuah rute justru **tidak** boleh bisa mundur ke landing, ubah
-//    `createMidFlowStack` untuk rute itu menjadi satu layar saja — itu
-//    keputusan produk, dan tempatnya memang di coordinator.
+//    sebuah rute justru tidak boleh bisa mundur ke landing, ubah
+//    `createMidFlowStack` untuk rute itu — keputusan produk, dan tempatnya
+//    memang di coordinator.
 //
 //
 // 3. Flow transfer → layar SwiftUI (daun)
 //
-//    navigator.push(
-//        Screen { SomeScreen(viewModel: createSomeViewModel()) }
-//    )
+//    navigator.push(Screen { SomeScreen(viewModel: createSomeViewModel()) })
 //
-//    Layarnya tidak perlu diubah sama sekali. Yang tidak terpakai hanyalah
-//    coordinator SwiftUI-nya, karena ia semata mesin navigasi.
+//    Layarnya tidak perlu diubah. Yang tidak terpakai hanya coordinator
+//    SwiftUI-nya, karena ia semata mesin navigasi.
 //
 //
 // 4. Flow transfer → rangkaian SwiftUI yang belum bisa diurai
 //
-//    navigator.pushIsland(
-//        SomeExistingCoordinator(...)
-//    )
+//    navigator.pushIsland(SomeExistingCoordinator(...))
 //
 //    Seluruh rangkaian menjadi satu entri di tumpukan; keluar berarti keluar
-//    seluruhnya. Pakai ini sebagai jembatan sementara, bukan tujuan akhir —
-//    begitu Anda ingin mundur ke langkah tertentu di dalamnya, ia harus jadi
-//    flow tersendiri.
+//    seluruhnya. Jembatan sementara, bukan tujuan akhir.
 //
 //
-// Yang tidak boleh: mempresentasikan flow dari dalam flow. Modal di atas modal
-// membuat penutupannya jadi tebakan. Di dalam flow, semuanya push.
+// Yang tidak boleh: mempresentasikan flow dari dalam flow. `AppRouter` hanya
+// menyimpan satu `pendingFlow`, jadi aturan itu ditegakkan sendiri — di dalam
+// flow, semuanya push.
 // =============================================================================

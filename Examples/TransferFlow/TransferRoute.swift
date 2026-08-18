@@ -15,7 +15,7 @@ import Foundation
 /// tidak ada logika lama yang tersenggol saat dipindah.
 ///
 /// Konsekuensinya rute menahan UseCase secara kuat. Itu disengaja dan
-/// berbatas: rute hidup selama flow-nya tampil, lalu `FlowEntryStore`
+/// berbatas: rute hidup selama flow-nya tampil, lalu `AppRouter`
 /// mengosongkannya saat flow ditutup.
 enum TransferRoute {
 
@@ -67,11 +67,5 @@ protocol TransferRouting: AnyObject {
     func finishFlow()
 }
 
-/// Titik masuk global flow transfer.
-///
-/// Dari mana pun di aplikasi:
-///
-/// ```swift
-/// transferFlowEntry.start(.landing(transferCart: cart, category: .idr))
-/// ```
-let transferFlowEntry = FlowEntryStore<TransferRoute>()
+// Pendaftarannya ke router global ada di `TransferFlowMount.swift`, supaya file
+// ini tetap murni daftar tujuan tanpa tahu apa pun soal presentasi.

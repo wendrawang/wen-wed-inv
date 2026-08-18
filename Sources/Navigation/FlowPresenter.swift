@@ -8,19 +8,9 @@ import UIKit
 /// bisa dilakukan per flow. Dashboard tidak berubah bentuk; ia hanya menyalakan
 /// satu `Bool`. Layar di dalam flow tidak tahu-menahu soal `NavigationView`.
 ///
-/// Dipakai sebagai `.background(...)` supaya tidak menempati ruang:
-///
-/// ```swift
-/// .background(
-///     FlowPresenter(isPresented: $isTransferFlowPresented) { navigator in
-///         TransferFlowCoordinator(
-///             navigator: navigator,
-///             transferCart: transferCart
-///         )
-///         .stack(enteringAt: .landing)
-///     }
-/// )
-/// ```
+/// Biasanya tidak dipakai langsung — `AppRouter` yang memakainya, lewat
+/// `.mountFlowRouter()`. Dipasang sebagai `.background(...)` supaya tidak
+/// menempati ruang.
 ///
 /// `createStack` mengembalikan **seluruh tumpukan**, bukan hanya layar pertama.
 /// Itu yang membuat "masuk ke tengah flow" menjadi kemampuan biasa, bukan

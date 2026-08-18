@@ -97,13 +97,13 @@ final class TransferFlowCoordinator {
     /// Layar pertama. Mengembalikan view, bukan melakukan efek samping, supaya
     /// `FlowPresenter` yang memasangnya ke tumpukan — lihat bagian
     /// "Persimpangan" untuk bentuk yang menerima entry point.
-    func makeLanding() -> some View {
+    func createLanding() -> some View {
         Screen {
-            TransferLandingScreen(viewModel: makeLandingViewModel())
+            TransferLandingScreen(viewModel: createLandingViewModel())
         }
     }
 
-    private func makeLandingViewModel() -> TransferLandingViewModel {
+    private func createLandingViewModel() -> TransferLandingViewModel {
         let useCase = TransferLandingUseCase()
         useCase.renewIdentifier()
         useCase.input.transferCart = transferCart
@@ -122,11 +122,11 @@ final class TransferFlowCoordinator {
 
     private func routeAfterLanding(_ output: TransferLandingUseCase.Output) {
         if output.transferCategory == .privateAccount {
-            navigator.push(makeDebitAccountSelection(output))
+            navigator.push(createDebitAccountSelection(output))
             return
         }
 
-        navigator.push(makeTransactionAmount(output))
+        navigator.push(createTransactionAmount(output))
     }
 }
 ```
@@ -171,24 +171,25 @@ nilai defaultnya mengembalikan view kosong, jadi tidak ada biaya.
 
 ## Cara berdampingan
 
-Satu titik temu per flow, dan Dashboard tidak berubah bentuk:
+Satu titik temu untuk **seluruh** aplikasi, dan Dashboard tidak berubah bentuk.
+Dipasang sekali di view terluar:
 
 ```swift
-@State private var isTransferFlowPresented = false
+NavigationView {
+    DashboardCoordinator()
+}
+.mountFlowRouter()
+```
 
-// di dalam body Dashboard
-.background(
-    FlowPresenter(isPresented: $isTransferFlowPresented) { navigator in
-        TransferFlowCoordinator(
-            navigator: navigator,
-            transferCart: transferCart
-        )
-        .stack(enteringAt: .landing)
-    }
+Lalu dari mana pun:
+
+```swift
+AppRouter.shared.start(
+    .transfer(.landing(transferCart: transferCart, category: .idr))
 )
 ```
 
-Tombol transfer menyalakan `isTransferFlowPresented`. Selesai. Flow lain yang
+Selesai. Flow lain yang
 masih memakai `NavigationLink` tidak tersentuh, dan tidak ada layar yang harus
 tahu keduanya ada.
 
@@ -215,10 +216,12 @@ struct MainView: View {
         NavigationView {
             DashboardCoordinator()
         }
-        .mountTransferFlow(screenFactories: transferScreenFactories)
+        .mountFlowRouter()
     }
 }
 ```
+
+Tanpa argumen, dan **tidak bertambah** saat flow baru ditambahkan.
 
 Di luar, bukan di dalam Dashboard, karena dua alasan. Pertama, flow-nya jadi
 bisa dibuka dari tab mana pun dan dari layar mana pun — termasuk layar yang
@@ -232,14 +235,14 @@ Tombol transfer di Dashboard tidak lagi menyalakan
 `selectionCoordinatorName`, melainkan:
 
 ```swift
-transferFlowEntry.start(
-    .landing(transferCart: TransferCart(), category: .idr)
+AppRouter.shared.start(
+    .transfer(.landing(transferCart: TransferCart(), category: .idr))
 )
 ```
 
 Tidak ada `@State`, tidak ada `Binding`, tidak ada `NavigationLink` yang harus
-berdiri lebih dulu di pohon Dashboard. Dan karena `transferFlowEntry` global,
-layar lain nanti bisa memakai baris yang sama persis.
+berdiri lebih dulu di pohon Dashboard. Dan karena `AppRouter` global, layar lain
+nanti bisa memakai baris yang sama persis.
 
 ### Apa yang terjadi pada Dashboard selama flow tampil
 
@@ -269,8 +272,9 @@ tidak mem-pop tumpukannya.
 
 Urutannya sengaja: yang paling mungkin bermasalah diuji paling murah.
 
-1. Pasang `.mountTransferFlow` dengan tujuh factory yang isinya masih
-   `AnyView(EmptyView())`. Buka dari Dashboard dengan `.landing`.
+1. Pasang `.mountFlowRouter()` dan sediakan `TransferScreenFactories.live`
+   dengan tujuh factory yang isinya masih `AnyView(EmptyView())`. Buka dari
+   Dashboard dengan `.transfer(.landing(...))`.
 2. Periksa yang bergantung pada `UIHostingController` iOS 13 — safe area di
    atas dan bawah, keyboard saat mengetik di kolom pencarian, dan bar SwiftUI
    Anda tampil normal.
@@ -380,7 +384,7 @@ extension TransferFlowCoordinator {
         case summary(TransferDraft)
     }
 
-    func stack(enteringAt entry: Entry) -> [UIViewController] {
+    func createStack(enteringAt entry: Entry) -> [UIViewController] {
         switch entry {
         case .landing:
             return [navigator.controller(for: makeLanding())]
@@ -417,16 +421,20 @@ menebak apa yang terjadi. Pisahkan dua hal: **penutupan** dan **hasil**.
 dilaporkan closure yang Anda serahkan ke coordinator saat membuatnya:
 
 ```swift
-FlowPresenter(isPresented: $isTransferFlowPresented) { navigator in
-    TransferFlowCoordinator(
-        navigator: navigator,
-        transferCart: transferCart,
-        onComplete: { receipt in
-            transferReceipt = receipt      // @State di layar SwiftUI
-            navigator.finish()
+extension PendingFlow {
+    static func transfer(
+        _ route: TransferRoute,
+        onComplete: @escaping (TransferReceipt) -> Void
+    ) -> PendingFlow {
+        PendingFlow { navigator in
+            TransferFlowCoordinator(
+                navigator: navigator,
+                screenFactories: .live,
+                onComplete: onComplete
+            )
+            .createStack(enteringAt: route)
         }
-    )
-    .stack(enteringAt: .landing)
+    }
 }
 ```
 
@@ -445,6 +453,73 @@ terjadi setelahnya — pindah tab, menampilkan struk, atau sekadar menutup.
 
 ---
 
+## Router global: yang global adalah mekanismenya, bukan daftarnya
+
+Godaan berikutnya, begitu satu flow jalan, adalah menaruh **seluruh tujuan
+aplikasi** dalam satu enum raksasa dan satu router yang tahu semuanya. Untuk
+aplikasi ratusan layar, itu berakhir buruk dengan cara yang bisa diramalkan:
+
+- Satu file berisi ratusan case — jauh melewati batas 250 baris, dan setiap tim
+  menyunting file yang sama.
+- Enum itu harus melihat tipe payload **semua** layar, jadi ia bergantung pada
+  seluruh aplikasi. Mengubah satu model berarti mengompilasi ulang router, dan
+  router dipakai semua orang.
+- Karena jadi berat, orang menurunkannya menjadi `String` plus `[String: Any]` —
+  dan itu persis `destinationCoordinatorName` yang baru saja kita tinggalkan,
+  hanya dengan nama baru.
+- "Tombol back membawa ke mana" adalah keputusan per flow. Router global tidak
+  bisa menyatakan `[landing, amount]` tanpa tahu bentuk tiap flow.
+
+Yang benar-benar layak global adalah **mekanismenya**: satu titik pasang, satu
+cara memanggil, satu aturan "satu flow pada satu waktu".
+
+```swift
+// dipasang sekali, tidak pernah bertambah argumennya
+NavigationView { DashboardCoordinator() }
+    .mountFlowRouter()
+
+// dipanggil dari mana pun
+AppRouter.shared.start(.transfer(.landing(transferCart: cart, category: .idr)))
+```
+
+`AppRouter` hanya menyimpan satu `PendingFlow` — sebuah closure penyusun
+tumpukan. Ia tidak tahu apa itu transfer. Setiap flow mendaftar lewat satu
+`static func` di file miliknya sendiri:
+
+```swift
+extension PendingFlow {
+    static func transfer(
+        _ route: TransferRoute,
+        screenFactories: TransferScreenFactories = .live
+    ) -> PendingFlow {
+        PendingFlow { navigator in
+            TransferFlowCoordinator(navigator: navigator, screenFactories: screenFactories)
+                .createStack(enteringAt: route)
+        }
+    }
+}
+```
+
+Menambah flow berikutnya berarti menyalin sepuluh baris itu ke file flow baru.
+`AppRouter.swift` tidak disentuh, dan tidak akan pernah ikut tumbuh.
+
+Yang didapat dari pembagian ini:
+
+| | Enum global untuk semua layar | Router global + rute per flow |
+|---|---|---|
+| Ukuran file pusat | tumbuh selamanya | tetap |
+| Ketergantungan | router melihat semua tipe | flow hanya melihat tipenya sendiri |
+| Konflik merge | satu file untuk semua tim | satu file per flow |
+| Keamanan tipe | luntur jadi `String` + `Any` | enum kecil, tetap terjaga |
+| Bentuk tumpukan | tidak bisa dinyatakan | milik coordinator flow |
+
+Satu efek samping yang menguntungkan: karena `AppRouter` hanya memegang satu
+`PendingFlow`, aturan "presentasi untuk menyeberang dunia, push untuk bergerak
+di dalam flow" ditegakkan sendiri — modal di atas modal tidak bisa terjadi
+karena kelalaian.
+
+---
+
 ## Factory: satu layar, dua pemanggil
 
 Langkah pertama yang nyata, dan satu-satunya yang berguna apa pun keputusan
@@ -459,7 +534,7 @@ Setelah dipisah, `TransferLandingCoordinator` tinggal berisi perutean dan
 `onCreateNavigationLinks`. Coordinator flow UIKit memakai factory yang sama:
 
 ```swift
-private func makeLanding() -> some View {
+private func createLanding() -> some View {
     TransferLandingFactory(transferCart: transferCart).makeScreen(
         routing: TransferLandingFactory.Routing(
             onRequestNewRecipient: { [weak self] viewModel in

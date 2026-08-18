@@ -18,7 +18,7 @@ Sources/Navigation/LazyNavigationLink.swift  destination yang ditunda
 Sources/Navigation/FlowNavigator.swift     navigasi flow sebagai objek
 Sources/Navigation/FlowNavigationController.swift  bar tersembunyi + swipe back
 Sources/Navigation/FlowPresenter.swift     titik temu NavigationView ↔ UIKit
-Sources/Navigation/FlowEntryStore.swift    titik masuk global sebuah flow
+Sources/Navigation/AppRouter.swift         router global + pemasangannya
 Examples/TransferFlow/                     flow transfer berbasis UIKit
 Sources/Support/PropertyBindable.swift      useCase.binding(\.output.x)
 Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
