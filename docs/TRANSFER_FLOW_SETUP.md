@@ -6,6 +6,129 @@ dokumen ini hanya langkah-langkahnya.
 
 ---
 
+## Mulai dari satu file
+
+Jangan mulai dengan dua belas file. `Examples/` memperlihatkan bentuk **akhir**
+setelah sebuah flow punya sembilan tujuan; untuk memulai, yang benar-benar
+dibutuhkan adalah **satu file baru dan dua baris yang diganti.**
+
+### Satu file baru
+
+```swift
+import SwiftUI
+import UIKit
+
+final class TransferFlowCoordinator {
+
+    private let navigator: FlowNavigator
+    private let transferCart: TransferCart
+
+    init(navigator: FlowNavigator, transferCart: TransferCart) {
+        self.navigator = navigator
+        self.transferCart = transferCart
+
+        // Wajib. Seluruh layar hanya menyebut coordinator lewat `[weak self]`,
+        // jadi tanpa ini ia lepas begitu `createStack()` selesai.
+        navigator.retainForFlowLifetime(self)
+    }
+
+    func createStack() -> [UIViewController] {
+        [navigator.createController(for: createLandingScreen())]
+    }
+
+    private func createLandingScreen() -> some View {
+        Screen {
+            TransferLandingScreen(viewModel: createLandingViewModel())
+        }
+    }
+
+    private func createLandingViewModel() -> TransferLandingViewModel {
+        let useCase = TransferLandingUseCase()
+        useCase.renewIdentifier()
+        useCase.input.transferCart = transferCart
+
+        let viewModel = TransferLandingViewModel()
+        viewModel.navigationBarViewModel.title = R.string
+            .navigationTitle
+            .transferRecipient
+            .text
+
+        // Layar pertama tumpukan: back berarti menutup flow.
+        viewModel.navigationBarViewModel.onTapBackButton = { [weak self] in
+            self?.navigator.finish()
+        }
+
+        useCase.callback.onSubmissionSucceed = { [weak self, weak useCase] in
+            guard let useCase = useCase else { return }
+            self?.showNextStep(after: useCase)
+        }
+
+        viewModel.setUseCase(useCase)
+        return viewModel
+    }
+
+    private func showNextStep(after useCase: TransferLandingUseCase) {
+        // Sengaja kosong untuk uji pertama. Diisi setelah alasnya terbukti.
+    }
+}
+
+extension PendingFlow {
+    static func transfer(transferCart: TransferCart) -> PendingFlow {
+        PendingFlow { navigator in
+            TransferFlowCoordinator(
+                navigator: navigator,
+                transferCart: transferCart
+            )
+            .createStack()
+        }
+    }
+}
+```
+
+### Dua baris yang diganti
+
+```swift
+// 1. di view terluar Main, di luar NavigationView
+NavigationView { DashboardCoordinator() }
+    .mountFlowRouter()
+
+// 2. di tombol transfer Dashboard
+AppRouter.shared.start(.transfer(transferCart: TransferCart()))
+```
+
+Selesai. Daftar penerima sudah muncul, tab dan pencarian sudah bekerja — semua
+itu logika `TransferLandingViewModel` yang tidak disentuh sama sekali. Yang
+belum: perpindahan ke tujuan berikutnya, dan itu memang sengaja.
+
+Satu baris yang perlu Anda sesuaikan: `onTapBackButton` adalah tebakan nama.
+Saya belum pernah melihat isi `NavigationBarViewModel`.
+
+---
+
+## Kapan file-file lain itu mulai dibutuhkan
+
+Dua belas file di `Examples/` bukan syarat masuk. Ini kapan masing-masing
+mulai berguna:
+
+| File | Wajib? | Mulai dibutuhkan saat |
+|---|---|---|
+| `TransferFlowCoordinator` | **ya** | sejak awal |
+| `PendingFlow.transfer(...)` | **ya** | sejak awal (10 baris, boleh menumpang di file yang sama) |
+| `TransferRoute` + `Step` | tidak | tujuan sudah lebih dari dua, atau butuh `goBack(to:)` |
+| `TransferRouting` | tidak | layar perlu meminta pindah tanpa tahu coordinator-nya |
+| `TransferScreenFactories` | tidak | ingin coordinator berhenti tahu cara membangun layar tujuan |
+| `TransferLandingFactory` | tidak | layar landing punya **dua** pemanggil — flow baru dan coordinator lama |
+| `…+Journey`, `…+Setup`, `…+RowActions`, `…+Destinations` | tidak | file induknya melewati 250 baris |
+
+Empat file terakhir itu **bukan kode baru** — isinya dipindah apa adanya dari
+file yang sudah ada, semata karena batas panjang file. Kalau di proyek Anda
+batasnya berbeda, empat file itu tidak perlu ada.
+
+Jadi hitungan yang sebenarnya untuk memulai: **satu file baru, dua baris
+diganti.** Sisanya tumbuh saat ada yang menuntutnya, bukan sebelumnya.
+
+---
+
 ## Perilaku swipe-back, supaya tidak ada kejutan
 
 Tiga situasi, dan ketiganya berbeda. Ini yang paling sering ditanyakan lebih
