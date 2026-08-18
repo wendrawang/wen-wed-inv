@@ -108,6 +108,9 @@ struct LazyNavigationLink<
         ) {
             EmptyView()
         }
+        // CATATAN MODULARISASI: ini satu-satunya pemakaian tipe milik aplikasi
+        // di seluruh `Sources/`. Saat folder ini dipindah ke package, pindahkan
+        // `.invisible()` ke package yang sama atau ganti dengan padanannya.
         .invisible()
     }
 

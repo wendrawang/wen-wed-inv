@@ -25,7 +25,7 @@ final class FlowNavigator {
     /// lihat `FlowPresenter`. Sengaja tidak melakukan `dismiss` sendiri supaya
     /// arah datanya tetap satu arah: flow melapor selesai, yang
     /// mempresentasikan yang menutup.
-    var onFinish: TypeAliasesVoidHandler = { return }
+    var onFinish: () -> Void = { return }
 
     private weak var navigationController: FlowNavigationController?
 
@@ -218,7 +218,3 @@ final class FlowNavigator {
         onFinish()
     }
 }
-
-// Alias lokal supaya file ini tidak bergantung pada `TypeAliases` milik
-// aplikasi. Saat disalin ke proyek, ganti dengan `TypeAliases.VoidHandler`.
-typealias TypeAliasesVoidHandler = () -> Void

@@ -39,7 +39,8 @@ Examples/Base/Screen.swift                  tanpa ScreenContentViewModel terbuan
 
 ── DOKUMEN ────────────────────────────────────────────────────────────────
 docs/STATUS.md                              status semua temuan
-docs/NAVIGATION_DECISION.md                keputusan navigasi + urutan migrasi
+docs/NAVIGATION_DECISION.md                 keputusan navigasi + urutan migrasi
+docs/MODULARIZATION.md                      rencana pecah ke local SPM
 docs/TRANSFER_FLOW_SETUP.md                cara memulai flow transfer
 docs/MEASUREMENT_GUIDE.md                  cara mengukur dengan Instruments
 docs/LIFECYCLE_RULES.md                    aturan lifecycle
