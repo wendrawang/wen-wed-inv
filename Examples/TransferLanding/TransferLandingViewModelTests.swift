@@ -39,6 +39,30 @@ final class TransferLandingViewModelTests: XCTestCase {
         trackForMemoryLeaks([sut, useCase])
     }
 
+    // PERUBAHAN: test baru, menjaga aturan terpenting `TransferLandingFactory`.
+    //
+    // Closure `Routing` berakhir tersimpan di `useCase.callback`, dan ViewModel
+    // menyimpan UseCase. Closure yang menangkap ViewModel karena itu menutup
+    // lingkaran — dan bentuk salahnya menggoda, karena `viewModel` biasanya
+    // sudah ada di scope pemanggil:
+    //
+    //     onSubmissionSucceed: { _ in self.route(viewModel) }   // salah
+    //     onSubmissionSucceed: { viewModel in self.route(viewModel) }  // benar
+    //
+    // Test ini merah untuk bentuk yang pertama.
+    func testFactoryBuiltViewModelIsReleased() {
+        let factory = TransferLandingFactory(transferCart: TransferCart())
+
+        let sut = factory.makeViewModel(
+            routing: TransferLandingFactory.Routing(
+                onRequestNewRecipient: { _ in },
+                onSubmissionSucceed: { _ in }
+            )
+        )
+
+        trackForMemoryLeaks([sut, sut.useCase])
+    }
+
     // MARK: - Membelah tahap: di mana lingkaran itu terbentuk
 
     // PERUBAHAN: dua test di bawah ini baru.

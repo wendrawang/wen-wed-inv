@@ -22,6 +22,7 @@ Sources/Support/PropertyBindable.swift      useCase.binding(\.output.x)
 Tests/Support/XCTestCase+MemoryLeak.swift  trackForMemoryLeaks
 Examples/DetailCardInfo/                   layar daun
 Examples/TransferLanding/                  layar berlist dengan banyak tujuan
+Examples/TransferLanding/TransferLandingFactory.swift  pembangunan tanpa navigasi
 Examples/Base/UseCase.swift                penjagaan base yang berlaku global
 Examples/Base/UseCase+PropertyBindable.swift  konformansi binding, terpisah
 Examples/Base/Screen.swift                 tanpa ScreenContentViewModel terbuang

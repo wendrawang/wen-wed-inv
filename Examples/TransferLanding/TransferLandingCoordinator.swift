@@ -47,17 +47,34 @@ struct TransferLandingCoordinator: View {
 
 extension TransferLandingCoordinator {
 
-    // PERUBAHAN: method baru. Menggantikan `createViewModel()` yang dulu
-    // dipanggil dari `body` pada setiap render.
+    // PERUBAHAN: seluruh pembangunan pindah ke `TransferLandingFactory`.
+    //
+    // Yang tersisa di coordinator hanya dua hal, dan keduanya memang urusan
+    // navigasi: perutean lewat `Routing`, dan `onCreateNavigationLinks` yang
+    // hanya ada di dunia `NavigationView`.
+    //
+    // `createUseCase()`, `createViewModel(useCase:)`, `navigationTitle()`, dan
+    // `setupNewRecipientAction(on:)` dihapus dari file ini — isinya sama persis,
+    // sekarang ada di factory.
     private func createDestination() -> some View {
-        let useCase = createUseCase()
-        let viewModel = createViewModel(useCase: useCase)
+        let viewModel = TransferLandingFactory(
+            transferCart: transferCart,
+            predefineTransferCategory: predefineTransferCategory
+        )
+        .makeViewModel(routing: destinationRouting())
 
-        // Dipasang di sini, bukan di `createUseCase()`, karena perutean menulis
-        // penanda yang ada di ViewModel — jadi ViewModel harus sudah ada.
-        useCase.callback.onSubmissionSucceed = { [weak useCase, weak viewModel] in
-            guard let useCase = useCase, let viewModel = viewModel else { return }
-            startDestinationCoordinator(for: useCase, on: viewModel)
+        // Tetap di sini: `AnyView` tujuan tidak punya padanan di dunia UIKit,
+        // jadi ia bukan milik factory. Layar yang dibangun coordinator flow
+        // cukup tidak mengisinya.
+        viewModel.onCreateNavigationLinks = { [weak viewModel] in
+            guard let viewModel = viewModel else {
+                return DefaultValues.emptyAnyView
+            }
+
+            return createNavigationLinks(
+                useCase: viewModel.useCase,
+                viewModel: viewModel
+            )
         }
 
         return Screen {
@@ -65,80 +82,26 @@ extension TransferLandingCoordinator {
         }
     }
 
-    // PERUBAHAN: objek baru, bukan `@State` yang dipakai ulang.
-    private func createUseCase() -> TransferLandingUseCase {
-        let useCase = TransferLandingUseCase()
-
-        useCase.renewIdentifier()
-        useCase.input.transferCart = transferCart
-        useCase.input.transferCategory = predefineTransferCategory
-
-        return useCase
-    }
-
-    // PERUBAHAN: objek baru, dan cabang `if selectionCoordinatorName != named`
-    // yang dulu mengembalikan ViewModel kosong dihapus — method ini sekarang
-    // hanya berjalan sekali, jadi cabang itu tidak punya alasan lagi.
-    private func createViewModel(
-        useCase: TransferLandingUseCase
-    ) -> TransferLandingViewModel {
-        let viewModel = TransferLandingViewModel()
-
-        // PERUBAHAN: `[weak viewModel, weak useCase]`. Closure ini disimpan di
-        // ViewModel, jadi `useCase` yang ditangkap kuat berarti ViewModel
-        // memegang UseCase lewat dua jalur — property dan closure ini. Satu
-        // jalur weak sudah cukup: ViewModel-lah pemilik UseCase-nya, jadi
-        // selama closure ini bisa dipanggil, UseCase-nya pasti masih ada.
-        viewModel.onCreateNavigationLinks = { [weak viewModel, weak useCase] in
-            guard let viewModel = viewModel, let useCase = useCase else {
-                return DefaultValues.emptyAnyView
+    // PERUBAHAN: method baru. Dua keputusan tujuan yang dulu tersebar di
+    // `createViewModel` dan `createDestination`, sekarang berdampingan.
+    //
+    // ViewModel-nya datang sebagai parameter, tidak ditangkap — closure ini
+    // berakhir tersimpan di `useCase.callback`, dan ViewModel menyimpan UseCase.
+    private func destinationRouting() -> TransferLandingFactory.Routing {
+        TransferLandingFactory.Routing(
+            onRequestNewRecipient: { viewModel in
+                startDestination(
+                    viewModel.selectedTransferCategory.newRecipientDestinationCoordinatorName,
+                    on: viewModel
+                )
+            },
+            onSubmissionSucceed: { viewModel in
+                startDestinationCoordinator(
+                    for: viewModel.useCase,
+                    on: viewModel
+                )
             }
-
-            return createNavigationLinks(useCase: useCase, viewModel: viewModel)
-        }
-
-        viewModel.navigationBarViewModel.title = navigationTitle()
-
-        viewModel.newRecipientMenuItemViewModel.analytic = AnalyticManager
-            .instance
-            .analytics
-            .hitTransferLandingNewRecipient
-
-        setupNewRecipientAction(on: viewModel)
-        viewModel.setUseCase(useCase)
-
-        return viewModel
-    }
-
-    private func navigationTitle() -> String {
-        if transferCart.targets.isEmpty {
-            return R.string.navigationTitle.transferRecipient.text
-        }
-
-        return String(
-            format: R.string.navigationTitle.transferRecipientMultiple.text,
-            transferCart.targets.count.nextNumber.ordinalText
         )
-    }
-
-    // PERUBAHAN: dulu `action = startNewRecipientCoordinator` dan
-    // `analytic.parameters` diisi saat ViewModel dibangun. Keduanya membaca
-    // `selectedTransferCategory`, dan itu hanya benar kalau pembangunannya
-    // berulang setiap render. Sekarang sekali, jadi pembacaannya pindah ke
-    // dalam aksinya.
-    private func setupNewRecipientAction(on viewModel: TransferLandingViewModel) {
-        viewModel.newRecipientMenuItemViewModel.action = { [weak viewModel] in
-            guard let viewModel = viewModel else { return }
-
-            viewModel.newRecipientMenuItemViewModel.analytic.parameters = [
-                .categoryTitle: viewModel.selectedTransferCategory.rawValue
-            ]
-
-            startDestination(
-                viewModel.selectedTransferCategory.newRecipientDestinationCoordinatorName,
-                on: viewModel
-            )
-        }
     }
 }
 

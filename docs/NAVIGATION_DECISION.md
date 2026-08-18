@@ -360,6 +360,62 @@ terjadi setelahnya — pindah tab, menampilkan struk, atau sekadar menutup.
 
 ---
 
+## Factory: satu layar, dua pemanggil
+
+Langkah pertama yang nyata, dan satu-satunya yang berguna apa pun keputusan
+navigasi akhirnya. Contohnya sudah ada:
+[`TransferLandingFactory`](../Examples/TransferLanding/TransferLandingFactory.swift).
+
+Garis pemisahnya satu kalimat: **apa pun yang tidak menyebut tujuan, masuk
+factory.** UseCase beserta `input`-nya, judul, analytic, penyambungan ViewModel
+ke UseCase. Yang menyebut tujuan diserahkan pemanggil lewat `Routing`.
+
+Setelah dipisah, `TransferLandingCoordinator` tinggal berisi perutean dan
+`onCreateNavigationLinks`. Coordinator flow UIKit memakai factory yang sama:
+
+```swift
+private func makeLanding() -> some View {
+    TransferLandingFactory(transferCart: transferCart).makeScreen(
+        routing: TransferLandingFactory.Routing(
+            onRequestNewRecipient: { [weak self] viewModel in
+                self?.showNewRecipient(viewModel.selectedTransferCategory)
+            },
+            onSubmissionSucceed: { [weak self] viewModel in
+                self?.routeAfterLanding(viewModel.useCase.output)
+            }
+        )
+    )
+}
+```
+
+Bandingkan dengan versi `NavigationView`-nya: yang berbeda hanya isi kedua
+closure. Layar, ViewModel, UseCase, judul, dan analytic-nya identik — dan
+identik karena memang objek yang sama, bukan karena dijaga agar mirip.
+
+### Satu aturan yang harus dipatuhi closure `Routing`
+
+**Jangan menangkap ViewModel-nya.** Ia datang sebagai parameter justru supaya
+tidak perlu ditangkap. Closure `Routing` berakhir tersimpan di
+`useCase.callback`, dan ViewModel menyimpan UseCase — jadi closure yang
+menangkap ViewModel menutup lingkaran, persis kelas kebocoran yang baru saja
+kita bersihkan di layar ini.
+
+Bentuk salahnya menggoda, karena `viewModel` biasanya sudah ada di scope
+pemanggil:
+
+```swift
+onSubmissionSucceed: { _ in self.route(viewModel) }          // salah
+onSubmissionSucceed: { viewModel in self.route(viewModel) }  // benar
+```
+
+`testFactoryBuiltViewModelIsReleased` merah untuk bentuk yang pertama, jadi
+aturan ini menggagalkan sesuatu dan bukan sekadar tertulis di dokumen.
+
+Kalau pemanggilnya sebuah class — coordinator flow UIKit — closure-nya tetap
+perlu `[weak self]` untuk dirinya sendiri.
+
+---
+
 ## Lapisan: ViewModel, UseCase, dan aturan input/output/repository
 
 Aturan di [ACCESS_MATRIX.md](ACCESS_MATRIX.md) tidak berubah. Yang perlu
