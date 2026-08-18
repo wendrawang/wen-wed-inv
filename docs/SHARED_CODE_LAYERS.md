@@ -56,6 +56,40 @@ Sama murninya dengan lapis 1. Bedanya hanya sebagian butuh `SwiftUI` atau
 `UIKit`, jadi pisahkan target yang butuh UI dari yang tidak — supaya lapis
 non-UI bisa dipakai test dan lapisan domain tanpa menyeret SwiftUI.
 
+## Soal `TypeAliases` — jangan dipindah sebagai satu blok
+
+Naluri Anda benar, tapi kriterianya bukan "primitif atau bukan". Yang benar:
+
+> **Sebuah alias tinggal di target yang sama dengan tipe yang disebutnya.**
+
+```swift
+typealias VoidHandler = () -> Void                    // Core
+typealias StringHandler = (String) -> Void            // Core
+typealias ResponseErrorHandler = (ResponseError) -> Void   // Domain — menyebut model
+typealias NavigationHandler = () -> AnyView           // Navigation — menyebut SwiftUI
+```
+
+Kalau `ResponseErrorHandler` dipaksa masuk Core, Core harus melihat
+`ResponseError`, dan lapis paling bawah jadi tahu model — arah yang salah, dan
+sekali itu terjadi semua model ikut tertarik ke bawah.
+
+### Ada persoalan yang lebih mendasar di sini
+
+Satu `enum TypeAliases` yang menampung semuanya **memaksa satu file tahu setiap
+lapis.** Bentuk itu sendiri yang menghalangi, bukan isinya.
+
+Jadi jangan pindahkan `TypeAliases` sebagai satu blok. Bubarkan: taruh tiap
+alias di dekat yang dilayaninya — `ResponseErrorHandler` di sebelah
+`ResponseError`, `NavigationHandler` di `Navigation`. Yang tersisa di Core hanya
+segelintir alias yang benar-benar tidak menyebut apa pun.
+
+Sekalian pertimbangkan: sebagian alias itu tidak memberi apa-apa.
+`(String) -> Void` lebih jelas dibaca langsung daripada `TypeAliases.StringHandler`,
+dan tidak menuntut siapa pun mengingat isinya. Yang layak dipertahankan adalah
+alias yang menyembunyikan bentuk **rumit**, bukan yang menamai bentuk sederhana.
+
+---
+
 ## Lapis 3 — Konstanta domain
 
 | | Status |

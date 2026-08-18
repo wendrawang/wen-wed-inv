@@ -5,6 +5,51 @@ dan infrastruktur yang kita bangun justru menyusut, bukan bertambah.
 
 ---
 
+## Perbandingannya langsung
+
+| | `NavigationStack` | `UINavigationController` + `UIHostingController` |
+|---|---|---|
+| Tumpukan sebagai data | **bawaan** (`path`) | dibangun sendiri (array view controller) |
+| Push / pop / pop ke langkah tertentu | operasi array | API UIKit, sudah matang |
+| Tujuan dibangun saat di-push | **bawaan** | bawaan |
+| Umur objek | terikat `path`; SwiftUI yang melepas | deterministik, `pop` melepas controller |
+| Transisi kustom antar layar | terbatas | **penuh** |
+| Gestur pop interaktif | otomatis, tidak bisa diatur halus | bisa diatur, tapi harus diurus manual saat bar disembunyikan |
+| Bar navigasi sendiri | `.toolbar(.hidden)` | sembunyikan bar UIKit |
+| Layar UIKit lama ikut masuk | perlu `UIViewControllerRepresentable` | **native** |
+| Layar `NavigationView` lama ikut masuk | perlu "pulau" | perlu "pulau" |
+| Kematangan | 16.0–16.3 berisik, tenang di 16.4+ | matang belasan tahun |
+| Arah Apple | **yang dikembangkan** | dirawat, tidak dikembangkan |
+| Biaya jangka panjang | tidak ada jembatan | **jembatan permanen** |
+
+Dua baris terakhir yang menentukan, dan keduanya menjawab pertanyaan Anda soal
+bridging.
+
+### Soal "Apple pasti mendorong SwiftUI"
+
+Betul arahnya, tapi hati-hati dengan kesimpulannya. UIKit **tidak akan hilang** —
+ia alas tempat SwiftUI berjalan, dan Apple akan terus merawatnya. Jadi argumen
+"UIKit akan mati" tidak jujur, dan bukan itu alasannya.
+
+Alasannya **di mana friksinya menumpuk.**
+
+Dengan navigasi UIKit + layar SwiftUI, Anda memiliki sebuah jembatan: kejanggalan
+`UIHostingController`, safe area, keyboard, delegate gestur, dan dua model
+lifecycle yang harus dicocokkan. Biaya jembatan itu dibayar **di setiap layar
+baru**, bukan sekali di awal. Kita sudah membayarnya empat kali dalam beberapa
+hari terakhir — gestur pulau, safe area, tombol back yang artinya berubah,
+kepemilikan coordinator.
+
+`NavigationStack` juga punya friksinya sendiri: bug `path`, aturan penempatan
+`navigationDestination`, kendali transisi yang terbatas. Bedanya, friksi itu ada
+**di dalam satu sistem** dan Apple yang memperbaikinya seiring waktu. Friksi
+jembatan permanen karena bentuknya memang begitu.
+
+Itu sebabnya, kalau minimum iOS bisa naik, `NavigationStack` yang menang —
+bukan karena lebih canggih hari ini, tapi karena tidak menitipkan utang.
+
+---
+
 ## Kenapa
 
 Yang membuat `NavigationView` tidak bisa dipakai bukan "karena SwiftUI",
