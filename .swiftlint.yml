@@ -27,10 +27,38 @@ disabled_rules:
   - todo
   - line_length
 
+# Disamakan dengan aturan yang berlaku di proyek.
+function_body_length:
+  warning: 50
+  error: 50
+
+file_length:
+  warning: 250
+  error: 250
+  ignore_comment_only_lines: true
+
 identifier_name:
-  min_length: 2
+  min_length: 3
+  max_length: 35
 
 custom_rules:
+
+  # --- Penamaan -----------------------------------------------------------
+
+  create_prefix_for_construction:
+    name: "Prefix `create` untuk konstruksi"
+    # `makeUIViewController` dan `makeCoordinator` dikecualikan: keduanya nama
+    # yang ditentukan `UIViewControllerRepresentable`, bukan pilihan kita.
+    regex: '\bfunc make(?!UIViewController\b|UIView\b|Coordinator\b)[A-Z]'
+    message: "Fungsi yang membangun objek memakai prefix `create`, bukan `make`."
+    severity: warning
+
+  is_prefix_for_boolean:
+    name: "Prefix `is` untuk boolean"
+    regex: '\b(?:let|var) (?!is[A-Z])[a-z]\w*: Bool\b'
+    message: "Property bertipe Bool memakai prefix `is`."
+    severity: warning
+
 
   # --- Lifetime -----------------------------------------------------------
 

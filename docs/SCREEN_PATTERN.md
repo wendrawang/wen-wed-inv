@@ -135,12 +135,19 @@ hanya berbeda seberapa cepat pemulihannya datang.
 `LazyNavigationLink` menghapus penyebabnya, bukan menambal gejalanya, sehingga
 tambalannya tidak lagi dibutuhkan.
 
-Builder hanya dipanggil sekali dan hasilnya disimpan. Saat body coordinator
-dievaluasi ulang — karena swipe yang dibatalkan atau sebab lain —
-`LazyNavigationDestination` yang baru dibuang oleh SwiftUI karena `@State`-nya
-sudah terpasang, dan layar yang ter-push tetap memakai ViewModel yang sama
-beserta datanya. Tidak ada evaluasi ulang, tidak ada objek kosong, tidak ada
-blank.
+Builder hanya dipanggil sekali per push dan hasilnya disimpan. Saat body
+coordinator dievaluasi ulang — karena swipe yang dibatalkan atau sebab lain —
+storage-nya sudah terisi, jadi layar yang ter-push tetap memakai ViewModel yang
+sama beserta datanya. Tidak ada evaluasi ulang, tidak ada objek kosong, tidak
+ada blank.
+
+Perhatikan **per push**. Cache-nya dikosongkan saat selection tautan lepas dari
+tag-nya, yaitu saat layar tujuan di-pop. Itu yang membuat ViewModel dan UseCase
+tujuan berumur sepanjang layar tujuan, bukan sepanjang layar induk. Versi
+pertama menyimpannya di `lazy var` yang tidak bisa dikosongkan, dan akibatnya
+DEINIT tidak pernah terjadi untuk flow yang berangkat dari root — lihat
+[LIFECYCLE_RULES.md](LIFECYCLE_RULES.md), bagian "Kalau yang tercatat hanya
+INIT".
 
 Yang menjamin ini bukan sekadar hilangnya cabang `if`, tapi satu invarian:
 **di kode yang baru tidak ada satu pun jalur yang menghasilkan ViewModel tanpa

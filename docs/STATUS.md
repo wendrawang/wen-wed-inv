@@ -29,6 +29,7 @@ dan skenario background/foreground, notifikasi, serta snackbar berjalan aman.
 | Temuan | Catatan |
 |---|---|
 | `Screen` membuang satu `ScreenContentViewModel` lengkap per konstruksi | Nilai default `@ObservedObject` selalu ditimpa oleh `content.viewModel`. Objek yang dibuang membawa 20-an `@Published` dan dua pendaftaran `NotificationCenter`. Perbaikannya di [`Examples/Base/Screen.swift`](../Examples/Base/Screen.swift); cara mengukurnya di bawah |
+| `LazyNavigationLink` menahan layar tujuan selamanya | Cache-nya berupa `lazy var` yang tidak bisa dikosongkan, dipegang `@State` di dalam tautan — dan tautannya ada di body layar **induk** selama induknya hidup. Untuk flow dari root, DEINIT tidak pernah terjadi. Ditutup dengan melepas cache saat selection tautannya lepas dari tag-nya. Verifikasinya: masuk–kembali–masuk tiga kali, `INIT` dan `DEINIT` harus berpasangan |
 
 ### Cara memverifikasi perbaikan `Screen`
 
@@ -81,6 +82,7 @@ Prosedur lengkapnya di [MEASUREMENT_GUIDE.md](MEASUREMENT_GUIDE.md).
 | Observer `NotificationCenter` bocor karena tidak pernah di-remove | Sejak iOS 9 observer bergaya selector disimpan weak dan otomatis nol |
 | Frame pertama sudah lengkap setelah `loadData()` di builder | `startFetchSucceed(_:)` asinkron, jadi selalu ada selisih satu frame |
 | Coordinator perlu memanggil `loadData()` | `Screen.onAppear` sudah melakukannya; memanggil lagi berarti muat ganda |
+| Penjagaan di `TransferLandingViewModel.loadData()` berbunyi `if selectedResponseRecipientTransfers.isEmpty { return }` | **Salah tulis saya.** Arahnya terbalik: yang kosong justru yang harus memuat. Akibatnya halaman pertama tidak pernah diambil saat layar dibuka. Sudah dikembalikan ke `if !…isEmpty` |
 
 ---
 
@@ -92,7 +94,8 @@ Enam temuan, tiga di antaranya tidak muncul di layar pendek:
 | Temuan | Status |
 |---|---|
 | `@Published` array di-`append` per baris — satu penerbitan per kontak | Terbukti dari kode; kandidat terkuat untuk fps di layar ini |
-| `.id(destinationCoordinatorName)` merobohkan seluruh layar tiap navigasi | Nyata, **tetapi load-bearing** — menghapusnya mematikan navigasi, dan ia tidak bisa dipakai bersama `LazyNavigationLink` |
+| Seluruh baris dibangun ulang tiap halaman baru → identitas berganti, scroll melompat ke atas | **Terlihat di aplikasi** saat halaman 2 masuk. Ditutup dengan cache baris per kontak |
+| `.id(destinationCoordinatorName)` merobohkan seluruh layar tiap navigasi | Nyata, **tetapi load-bearing** — menghapusnya mematikan navigasi, dan ia tidak bisa dipakai bersama `LazyNavigationLink`. Diganti dengan penanda dua tahap di ViewModel; **navigasinya sudah berjalan di aplikasi** |
 | Sepuluh retain cycle, dua di antaranya per baris list | Terbukti dari kode; butuh test untuk memastikan |
 | Kamus sembilan closure dibangun ulang tiap render | Terbukti dari kode |
 | Kamus closure sebagai lazy navigation | **Sudah benar** — hanya satu tujuan yang dibangun |

@@ -107,7 +107,7 @@ private extension BankCard {
     ///
     /// Yang wajib dipenuhi hanya dua hal, karena hanya itu yang diperiksa:
     /// `number` tidak kosong, dan `cvv` tidak kosong. Sisanya boleh default —
-    /// kalau `expiration` kosong, `makeCardExpiredViewModel` akan jatuh ke
+    /// kalau `expiration` kosong, `createCardExpiredViewModel` akan jatuh ke
     /// `DefaultValues.emptyDate` dan itu tidak mengganggu test ini.
     static func stubbedForCardInfoTests() -> BankCard {
         var bankCard = BankCard(.debitCard)

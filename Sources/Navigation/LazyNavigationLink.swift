@@ -1,33 +1,56 @@
 import SwiftUI
 
 /// Menyimpan hasil build destination supaya `destinationBuilder` hanya
-/// dijalankan sekali, yaitu saat layar benar-benar di-push.
+/// dijalankan sekali **per push**, lalu melepasnya lagi saat pop.
 private final class LazyNavigationDestinationStorage<
     Destination: View
 > {
     private let destinationBuilder: () -> Destination
 
-    lazy var destination: Destination = destinationBuilder()
+    // PERUBAHAN: dulu `lazy var destination: Destination = destinationBuilder()`.
+    //
+    // `lazy var` tidak bisa dikosongkan lagi setelah terisi, dan di situlah
+    // masalahnya: cache-nya berubah menjadi **pemilik**. Struct layar yang
+    // tersimpan di sini memegang ViewModel-nya lewat `@ObservedObject`, jadi
+    // selama storage hidup, ViewModel dan UseCase-nya juga hidup. Storage-nya
+    // sendiri dipegang `@State` di dalam tautan, dan tautan itu ada di body
+    // layar induk sepanjang layar induk ada. Untuk flow yang berangkat dari root
+    // — Dashboard → Transfer Landing — itu berarti selamanya: INIT tercatat
+    // sekali, DEINIT tidak pernah.
+    private var cachedDestination: Destination?
+
+    var destination: Destination {
+        if let cachedDestination = cachedDestination {
+            return cachedDestination
+        }
+
+        let builtDestination = destinationBuilder()
+        cachedDestination = builtDestination
+        return builtDestination
+    }
 
     init(destinationBuilder: @escaping () -> Destination) {
         self.destinationBuilder = destinationBuilder
+    }
+
+    // PERUBAHAN: method baru. Melepas referensi cache-nya saja — bukan
+    // menghancurkan layarnya. Selama SwiftUI masih menampilkan layar tujuan, ia
+    // tetap memegang struct-nya sendiri, jadi memanggil ini di tengah animasi
+    // pop aman: yang terjadi hanya satu referensi berkurang, dan DEINIT
+    // menyusul saat SwiftUI ikut melepas.
+    func releaseDestination() {
+        cachedDestination = nil
     }
 }
 
 private struct LazyNavigationDestination<
     Destination: View
 >: View {
-    @State private var storage: LazyNavigationDestinationStorage<Destination>
-
-    init(
-        @ViewBuilder destinationBuilder: @escaping () -> Destination
-    ) {
-        _storage = State(
-            initialValue: LazyNavigationDestinationStorage(
-                destinationBuilder: destinationBuilder
-            )
-        )
-    }
+    // PERUBAHAN: dulu `@State private var storage`, dibangun di `init` sini.
+    // Storage-nya pindah ke `LazyNavigationLink` supaya tautannya bisa
+    // melepasnya saat selection-nya lepas — view ini tidak punya akses ke
+    // selection.
+    let storage: LazyNavigationDestinationStorage<Destination>
 
     var body: some View {
         storage.destination
@@ -35,7 +58,7 @@ private struct LazyNavigationDestination<
 }
 
 /// `NavigationLink` yang menunda pembangunan destination sampai layar
-/// benar-benar dibuka.
+/// benar-benar dibuka, dan melepasnya kembali saat ditutup.
 ///
 /// `NavigationLink(destination:)` biasa meng-construct destination-nya saat
 /// body induk dievaluasi. Pada arsitektur coordinator, itu berarti membuka
@@ -43,19 +66,23 @@ private struct LazyNavigationDestination<
 /// versi ini, cascade berhenti di satu tingkat: membuka layar A membangun
 /// *link* milik B, tetapi bukan isi B.
 ///
-/// Konsekuensi yang perlu diketahui: hasil build disimpan selama `@State`
-/// destination masih hidup, dan `NavigationView` di iOS 13–14 tidak selalu
-/// merobohkannya tepat saat pop. Objeknya tetap dilepas — saat slot dipakai
-/// ulang atau saat ancestor-nya mati — jadi ini pelepasan tertunda, bukan
-/// kebocoran. Lihat docs/LIFECYCLE_RULES.md untuk cara mengukurnya.
+/// Sifat kedua yang sama pentingnya: hasil build dilepas begitu selection-nya
+/// tidak lagi menunjuk tautan ini. Tanpa itu, ViewModel dan UseCase layar
+/// tujuan berumur sepanjang layar **induk**, bukan sepanjang layar tujuan —
+/// dan untuk flow yang berangkat dari root, itu berarti tidak pernah dilepas.
 struct LazyNavigationLink<
     Tag: Hashable,
     Destination: View
 >: View {
     @Binding private var selection: Tag?
 
+    // PERUBAHAN: storage pindah ke sini dari `LazyNavigationDestination`.
+    // `@State` di sini justru yang kita inginkan: tautannya ada di body induk
+    // sepanjang layar induk hidup, jadi storage-nya stabil dan kita yang
+    // menentukan kapan isinya dibuang — bukan `NavigationView`.
+    @State private var storage: LazyNavigationDestinationStorage<Destination>
+
     private let tag: Tag
-    private let destinationBuilder: () -> Destination
 
     init(
         tag: Tag,
@@ -64,19 +91,48 @@ struct LazyNavigationLink<
     ) {
         self.tag = tag
         self._selection = selection
-        self.destinationBuilder = destinationBuilder
+        _storage = State(
+            initialValue: LazyNavigationDestinationStorage(
+                destinationBuilder: destinationBuilder
+            )
+        )
     }
 
     var body: some View {
         NavigationLink(
-            destination: LazyNavigationDestination(
-                destinationBuilder: destinationBuilder
-            ),
+            // PERUBAHAN: storage dioper, tidak lagi dibangun di dalam sini.
+            destination: LazyNavigationDestination(storage: storage),
             tag: tag,
-            selection: $selection
+            // PERUBAHAN: `$selection` menjadi `releasingSelection`.
+            selection: releasingSelection
         ) {
             EmptyView()
         }
+        // CATATAN MODULARISASI: ini satu-satunya pemakaian tipe milik aplikasi
+        // di seluruh `Sources/`. Saat folder ini dipindah ke package, pindahkan
+        // `.invisible()` ke package yang sama atau ganti dengan padanannya.
         .invisible()
+    }
+
+    // PERUBAHAN: pembungkus baru untuk binding selection.
+    //
+    // `NavigationView` menulis `nil` ke selection saat layar tujuan di-pop —
+    // lewat tombol back maupun swipe. Titik itu satu-satunya tempat yang tahu
+    // "tautan ini sudah tidak terpilih" tanpa efek samping di dalam `body` dan
+    // tanpa `onChange` (iOS 14+) atau `onDisappear` (tidak dapat diandalkan di
+    // `NavigationView` iOS 13 — ia juga menyala saat layar tertutup sheet).
+    private var releasingSelection: Binding<Tag?> {
+        Binding(
+            get: {
+                self.selection
+            },
+            set: { newValue in
+                if newValue != self.tag {
+                    self.storage.releaseDestination()
+                }
+
+                self.selection = newValue
+            }
+        )
     }
 }
