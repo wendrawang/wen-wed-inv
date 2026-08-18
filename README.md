@@ -42,7 +42,7 @@ docs/STATUS.md                              status semua temuan
 docs/NAVIGATION_DECISION.md                 keputusan navigasi + urutan migrasi
 docs/MODULARIZATION.md                      rencana pecah ke local SPM
 docs/SHARED_CODE_LAYERS.md                  urutan merapikan kode bersama
-docs/PACKAGE_MAP.md                         peta folder proyek → package
+docs/PACKAGE_MAP.md                         daftar package + foldering + Package.swift
 docs/TRANSFER_FLOW_SETUP.md                cara memulai flow transfer
 docs/MEASUREMENT_GUIDE.md                  cara mengukur dengan Instruments
 docs/LIFECYCLE_RULES.md                    aturan lifecycle

@@ -1,17 +1,185 @@
-# Peta folder → package
+# Peta package dan foldering
 
-Pemetaan dari struktur folder yang ada sekarang ke package. Disusun dari nama
-foldernya, jadi **beberapa perlu Anda buka dulu untuk memastikan isinya** —
-ditandai di kolom catatan.
+Dua hal yang sering tertukar, jadi dipisahkan tegas di sini:
+
+- **Package** = satu `Package.swift`. Jumlahnya sedikit.
+- **Target** = satu modul yang di-`import`. Satu package boleh punya banyak.
+
+Batas antar **target** ditegakkan kompiler sama kuatnya dengan batas antar
+package. Jadi banyak target dalam satu package tidak melonggarkan apa pun —
+yang berkurang hanya jumlah `Package.swift` yang harus diurus.
+
+---
+
+## Daftar local SPM package
+
+| # | Package | Isinya | Pemilik |
+|---|---|---|---|
+| 1 | **Platform** | enam target lapis bersama — lihat tabel di bawah | tim core |
+| 2 | **TransferFeature** | satu fitur utuh | satu squad |
+| 3 | **PaymentFeature** | satu fitur utuh | satu squad |
+| … | **`<Nama>`Feature** | seterusnya, satu per fitur | satu squad |
+
+**Dua package untuk memulai**: `Platform` dan satu fitur pertama. Sisanya
+menyusul saat fiturnya dikerjakan.
+
+### Enam target di dalam `Platform`
+
+| Target | Isinya | Bergantung pada |
+|---|---|---|
+| **Core** | `TypeAliases`, extension tanpa UI, konstanta murni, enum teknis | — |
+| **Navigation** | `Sources/Navigation` + `DebugTool` | — |
+| **DesignSystem** | token visual (`Spaces`, `IconSizes`, warna, font), `UIViewModifier`, extension yang butuh UI | Core |
+| **Domain** | `UseCase` base, model bersama, `Transformer` bersama, konstanta bisnis (`Currencies`) | Core |
+| **Components** | `UIComponents`, `UIWidgets`, `UIForms`, `UINavigationBar`, `UIChart`, `UIViewRepresentable`, lalu `Screen` paling akhir | Core, DesignSystem |
+| **Routes** | `enum AppRoute` saja | Navigation, Domain |
+
+Import-nya nanti: `import Core`, `import Navigation`, `import DesignSystem`.
+
+---
+
+## Foldering
+
+`Packages/` selevel dengan `Byon/`, di root repo — **bukan di dalamnya.**
+
+```
+repo/
+  Byon.xcodeproj
+  Byon/                          target aplikasi, menyusut seiring waktu
+    Services/  Managers/
+    Resources/ Assets/
+    Configs/   Entitlements/
+    AppDelegate.swift            + pemasangan setFlowResolver
+  ByonTests/
+  Frameworks/
+
+  Packages/
+    Platform/
+      Package.swift
+      Sources/
+        Core/
+        Navigation/
+        DesignSystem/
+        Domain/
+        Components/
+        Routes/
+      Tests/
+        NavigationTests/
+
+    TransferFeature/
+      Package.swift
+      Sources/
+        TransferFeature/
+          Flow/                  TransferFlowCoordinator.swift
+          Landing/               Screen, ViewModel, UseCase, Factory
+          Models/                model milik transfer saja
+      Tests/
+        TransferFeatureTests/
+```
+
+### Kenapa `Packages/` di luar `Byon/`
+
+1. **Arah dependensinya App → Package.** Menaruhnya di dalam `Byon/`
+   menyiratkan kebalikannya, dan orang baru akan membacanya begitu.
+2. **`Byon/` adalah sumber target aplikasi.** File di dalamnya gampang ikut
+   target membership tanpa sengaja — dan file package yang juga dikompilasi App
+   target adalah bug yang membingungkan.
+3. **CODEOWNERS, CI, dan cache** lebih bersih dengan `Packages/*` sebagai jalur
+   tersendiri. Untuk pembagian per squad ini langsung terasa.
+4. **`swift build` dan `swift test`** jalan dari folder package-nya tanpa Xcode.
+   Itu yang membuat CI per squad murah.
+
+---
+
+## `Package.swift`
+
+```swift
+// swift-tools-version:5.9
+import PackageDescription
+
+let package = Package(
+    name: "Platform",
+    platforms: [.iOS(.v13)],
+    products: [
+        .library(name: "Core", targets: ["Core"]),
+        .library(name: "Navigation", targets: ["Navigation"]),
+        .library(name: "DesignSystem", targets: ["DesignSystem"]),
+        .library(name: "Domain", targets: ["Domain"]),
+        .library(name: "Components", targets: ["Components"]),
+        .library(name: "Routes", targets: ["Routes"])
+    ],
+    targets: [
+        .target(name: "Core"),
+        .target(name: "Navigation"),
+        .target(name: "DesignSystem", dependencies: ["Core"]),
+        .target(name: "Domain", dependencies: ["Core"]),
+        .target(name: "Components", dependencies: ["Core", "DesignSystem"]),
+        .target(name: "Routes", dependencies: ["Navigation", "Domain"]),
+        .testTarget(name: "NavigationTests", dependencies: ["Navigation"])
+    ]
+)
+```
+
+Baris `dependencies:` itu yang menegakkan susunannya. Kalau ada yang menulis
+`import Components` di dalam `DesignSystem`, build gagal — bukan review yang
+harus menangkapnya.
+
+Package fitur menyebut `Platform` lewat path relatif:
+
+```swift
+dependencies: [.package(path: "../Platform")]
+```
+
+### Cara memulainya
+
+Buat `Package.swift` dengan **target `Navigation` saja** dulu. Buktikan aplikasi
+build dan flow transfer masih jalan. Baru tambahkan target berikutnya satu per
+satu.
+
+Kalau ada yang tidak beres — biasanya `public` yang terlewat atau resource yang
+tidak ikut — cakupannya kecil dan jelas letaknya.
+
+---
+
+## Satu nama yang tidak boleh dipakai
+
+Prefiks aplikasi sengaja tidak dipakai supaya `import`-nya enak dibaca. Tetapi
+satu nama harus dihindari: **`Foundation`**. Itu framework Apple, dan target
+dengan nama itu menabraknya di setiap file yang mengimpor keduanya — yaitu
+hampir semua file. Karena itu lapis paling bawah bernama `Core`.
+
+Nama lain yang lebih baik dijauhi karena alasan sama: `Combine`, `Dispatch`,
+`Network`, `Contacts`, `Intents`, `Charts`. Yang terakhir relevan kalau
+`UIChart` nanti dipisah — namai `Charting`, jangan `Charts`.
+
+---
+
+## Arah dependensinya
+
+```
+Core ─┬─► DesignSystem ──► Components ─┐
+      └─► Domain ────────────────────┬─┤
+                                     │ │
+Navigation ─────────────────────┬────┘ │
+                                │      │
+                  Routes ◄──────┘      │
+                     ▲                 │
+                     └──────── <Nama>Feature
+                                       │
+                            App target ◄┘
+```
+
+Dua sifat yang harus tetap benar: **tidak ada panah yang kembali ke atas**, dan
+**tidak ada panah antar fitur.**
 
 ---
 
 ## Yang menentukan kesulitannya
 
-Struktur Anda **per tipe**, bukan per fitur: semua `UIComponents` di satu tempat,
-semua `Models` di satu tempat, semua `UIScreens` di satu tempat.
+Struktur folder Anda **per tipe**, bukan per fitur: semua `UIComponents` di satu
+tempat, semua `Models` di satu tempat, semua `UIScreens` di satu tempat.
 
-Untuk lapis bersama itu justru menguntungkan — `Constants`, `Extensions`,
+Untuk lapis bersama itu menguntungkan — `Constants`, `Extensions`,
 `TypeAliases` sudah terkumpul, tinggal dipindah. Tetapi untuk fitur itu
 menyulitkan: satu fitur tersebar di `UIScreens`, `Models`, `Services`, dan
 `Transformer` sekaligus. **Memotong fitur adalah pekerjaan yang sebenarnya**,
@@ -19,139 +187,27 @@ dan itu sebabnya fitur dikerjakan terakhir.
 
 ---
 
-## Di mana package-nya ditaruh
+## Kenapa `Navigation` tidak ikut tumbuh
 
-**Selevel dengan `Byon/`, di root repo — bukan di dalamnya.**
-
-```
-repo/
-  Byon.xcodeproj
-  Byon/                     ← target aplikasi, menyusut seiring waktu
-  ByonTests/
-  Packages/
-    Platform/               ← satu Package.swift, banyak target
-      Sources/
-        Core/
-        DesignSystem/
-        Domain/
-        Components/
-        Navigation/
-        Routes/
-      Tests/
-    TransferFeature/        ← satu package per fitur, satu pemilik
-    PaymentFeature/
-  Frameworks/
-```
-
-Empat alasan, dan yang pertama paling menentukan:
-
-1. **Arah dependensinya App → Package.** Menaruh package di dalam `Byon/`
-   menyiratkan kebalikannya, dan orang baru akan membacanya begitu.
-2. **`Byon/` adalah sumber target aplikasi.** File di dalamnya mudah ikut
-   ter-*target membership* tanpa sengaja — dan file package yang juga
-   dikompilasi App target adalah bug yang membingungkan.
-3. **CODEOWNERS, CI, dan cache** lebih bersih dengan `Packages/*` sebagai jalur
-   tersendiri.
-4. **`swift build` dan `swift test`** bisa dijalankan langsung dari folder
-   package-nya, tanpa Xcode sama sekali. Itu yang membuat CI per squad murah.
-
-### Satu package untuk lapis bersama, satu per fitur
-
-`Platform` menampung enam target sekaligus, bukan enam package. Alasannya
-praktis: keenamnya berubah bersamaan dan dimiliki orang yang sama, sementara
-enam `Package.swift` berarti enam kali pekerjaan tiap kali ada perubahan
-dependensi.
-
-Yang perlu diketahui supaya pilihan ini tidak terasa seperti kompromi:
-**batas antar target ditegakkan kompiler sama kuatnya dengan batas antar
-package.** `DesignSystem` tetap tidak bisa menyebut `Components` kalau tidak
-dideklarasikan di `Package.swift`. Yang hilang hanya versioning terpisah, dan
-untuk package lokal itu memang tidak dipakai.
-
-Fitur tetap satu package masing-masing — di situ pemisahannya bukan soal
-kompilasi, tapi soal kepemilikan dan konflik antar squad.
-
-### Yang tetap tinggal di `Byon/`
-
-`Services`, `Managers`, `Resources`, `Assets`, `Configs`, `Entitlements`,
-`R.generated`, `AppDelegate`/`SceneDelegate`, dan pemasangan `setFlowResolver`.
-Folder itu tidak akan hilang — ia menyusut sampai berisi komposisi dan hal-hal
-yang memang milik aplikasi.
-
----
-
-## Package yang diusulkan
-
-| Package | Isinya | Bergantung pada | Dibuat saat |
-|---|---|---|---|
-| **Navigation** | `Sources/Navigation` + `DebugTool` | — | langkah 1, bisa paling awal |
-| **Core** | `TypeAliases`, extension tanpa UI, konstanta murni, enum teknis | — | langkah 2 |
-| **DesignSystem** | token visual (`Spaces`, `IconSizes`, warna, font), `UIViewModifier`, extension yang butuh UI | Core | langkah 3 |
-| **Domain** | `UseCase` base, model bersama, `Transformer` bersama, konstanta bisnis (`Currencies`) | Core | langkah 4 |
-| **Routes** | `enum AppRoute` saja, tidak ada yang lain | Navigation, Domain | saat perpindahan lintas fitur pertama muncul |
-| **Components** | `UIComponents`, `UIWidgets`, `UIForms`, `UINavigationBar`, `UIChart`, `UIViewRepresentable`, lalu `Screen` paling akhir | DesignSystem, Core | langkah 5 |
-| **`<Nama>`Feature** | layar + ViewModel + UseCase + model milik fitur, coordinator flow, `extension PendingFlow` | semua di atas | langkah 6, satu per squad |
-
-**Tetap di App target:** `Services`, `Managers`, `Resources`, `Assets`,
-`Configs`, `Entitlements`, `Vendors`, `Frameworks`, `R.generated`,
-`AppDelegate`/`SceneDelegate`, dan pemasangan `setFlowResolver`.
-
-### Satu nama yang tidak boleh dipakai
-
-Prefiks aplikasi sengaja tidak dipakai supaya `import`-nya enak dibaca —
-`import Core`, `import DesignSystem`, `import Navigation`. Tetapi satu nama
-harus dihindari: **`Foundation`**. Itu framework Apple, dan package dengan nama
-itu menabraknya di setiap file yang mengimpor keduanya.
-
-Karena itu lapis paling bawah bernama `Core`, bukan `Foundation`.
-
-Nama lain yang lebih baik dijauhi karena alasan yang sama: `Combine`,
-`Dispatch`, `Network`, `Contacts`, `Intents`, `Charts` — semuanya framework
-Apple. `Charts` khususnya relevan kalau `UIChart` nanti jadi package sendiri;
-namai `Charting` atau `ChartComponents`.
-
-### Arah dependensinya
-
-```
-Core ─┬─► DesignSystem ──► Components ─┐
-                └─► Domain ───────────────────────┬─┤
-                                                      │ │
-Navigation ──────────────────────────────────┬────┘ │
-                                                 │      │
-                              Routes ◄────┘      │
-                                    ▲                   │
-                                    └───────────── <Nama>Feature
-                                                        │
-                                             App target ◄┘
-```
-
-Tidak ada panah yang kembali ke atas, dan **tidak ada panah antar fitur.** Itu
-yang harus tetap benar; sisanya bisa disesuaikan.
-
----
-
-## Satu package per fitur, dan `Navigation` tidak ikut tumbuh
-
-Kekhawatiran "ujungnya jadi massive" wajar, tapi namanya yang salah — salah
-saya. **`Navigation` adalah infrastrukturnya, bukan kumpulan flow.** Isinya
-enam file: `AppRouter`, `FlowPresenter`, `FlowNavigationController`,
-`FlowNavigator`, `FlowStepHostingController`, `LazyNavigationLink`. Jumlah itu
-tidak berubah saat fitur kesepuluh ditambahkan — memang itu tujuan `PendingFlow`
-dibuat sebagai closure, bukan enum berisi seluruh tujuan aplikasi.
+Kekhawatiran "ujungnya jadi massive" wajar, tapi penamaannya yang salah — salah
+saya. **`Navigation` adalah infrastrukturnya, bukan kumpulan flow.** Isinya enam
+file: `AppRouter`, `FlowPresenter`, `FlowNavigationController`, `FlowNavigator`,
+`FlowStepHostingController`, `LazyNavigationLink`. Jumlah itu tidak berubah saat
+fitur kesepuluh ditambahkan — memang itu tujuan `PendingFlow` dibuat sebagai
+closure, bukan enum berisi seluruh tujuan aplikasi.
 
 Flow-nya sendiri tinggal di package fiturnya masing-masing.
 
 ### Per fitur, bukan per flow
 
-Alasan Anda soal konflik antar squad tepat, dan package memberi lebih dari itu:
-build dan test yang berdiri sendiri, isolasi yang ditegakkan kompiler, dan
-kepemilikan yang jelas lewat CODEOWNERS per folder.
+Package memberi build dan test yang berdiri sendiri, isolasi yang ditegakkan
+kompiler, dan kepemilikan yang jelas lewat CODEOWNERS.
 
-Tapi granularitasnya **per fitur**, bukan per flow. Satu fitur sering punya
-beberapa flow — transfer punya flow transaksi, dan mungkin nanti flow kelola
-penerima — yang berbagi model, service, dan komponen yang sama. Memecahnya per
-flow menghasilkan belasan package kecil yang saling menyebut, dan itu lebih
-buruk daripada satu package yang jelas pemiliknya.
+Tapi granularitasnya **per fitur**. Satu fitur sering punya beberapa flow —
+transfer punya flow transaksi, mungkin nanti flow kelola penerima — yang berbagi
+model, service, dan komponen yang sama. Memecahnya per flow menghasilkan
+belasan package kecil yang saling menyebut, dan itu lebih buruk daripada satu
+package yang jelas pemiliknya.
 
 Ukurannya: **satu package untuk satu domain yang dimiliki satu squad.**
 
