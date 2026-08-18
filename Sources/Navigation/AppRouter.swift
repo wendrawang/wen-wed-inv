@@ -1,5 +1,12 @@
 import SwiftUI
 
+/// Penanda bahwa sebuah nilai adalah rute yang bisa diminta lintas fitur.
+///
+/// Sengaja kosong. Daftar rutenya **tidak** tinggal di sini — ia milik satu
+/// package kontrak kecil yang dilihat semua fitur, sementara file ini tetap
+/// tidak tahu satu pun fitur ada. Lihat `setFlowResolver(_:)`.
+protocol FlowRoute {}
+
 /// Satu flow yang siap dibuka, beserta cara menyusun tumpukannya.
 ///
 /// Sengaja hanya berisi closure, bukan enum berisi seluruh tujuan aplikasi.
@@ -60,7 +67,65 @@ final class AppRouter: ObservableObject {
         pendingFlow != nil
     }
 
+    private var flowResolver: ((FlowRoute) -> PendingFlow?)?
+
     private init() {}
+
+    // MARK: - Perpindahan antar package fitur
+
+    /// Memasang pemetaan dari rute abstrak ke flow yang sebenarnya.
+    ///
+    /// Dipanggil **sekali**, di App target — satu-satunya tempat yang melihat
+    /// seluruh graf fitur.
+    ///
+    /// ```swift
+    /// AppRouter.shared.setFlowResolver { route in
+    ///     switch route as? AppRoute {
+    ///     case .transfer(let cart):  return .transfer(transferCart: cart)
+    ///     case .payment(let bill):   return .payment(bill: bill)
+    ///     default:                   return nil
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// Ini yang membuat package fitur bisa saling menuju **tanpa saling
+    /// mengimpor**: fitur menyebut rutenya lewat kontrak bersama, App target
+    /// yang tahu flow mana yang menjawabnya.
+    func setFlowResolver(_ resolver: @escaping (FlowRoute) -> PendingFlow?) {
+        flowResolver = resolver
+    }
+
+    /// Membuka flow yang menjawab sebuah rute.
+    ///
+    /// Dipakai package fitur yang perlu menuju fitur lain. Fitur cukup tahu
+    /// kontrak rutenya; ia tidak perlu — dan tidak boleh — tahu package mana
+    /// yang menjawabnya.
+    func start(_ route: FlowRoute) {
+        guard let flowResolver = flowResolver else {
+            assertionFailure(
+                """
+                No flow resolver is installed, so \(route) cannot be opened. \
+                Call AppRouter.shared.setFlowResolver(_:) once at app start.
+                """
+            )
+            return
+        }
+
+        guard let flow = flowResolver(route) else {
+            assertionFailure(
+                """
+                The flow resolver returned nothing for \(route). Every route \
+                a feature can request must be answered where the resolver is \
+                installed.
+                """
+            )
+            return
+        }
+
+        start(flow)
+    }
+
+    // MARK: - Membuka flow secara langsung
 
     /// Membuka sebuah flow.
     ///
