@@ -42,9 +42,13 @@ final class FlowNavigator {
         navigationController?.flowCoordinator = flowCoordinator
     }
 
-    func push<Content: View>(_ content: Content, isAnimated: Bool = true) {
+    func push<Content: View>(
+        _ content: Content,
+        stepIdentifier: String? = nil,
+        isAnimated: Bool = true
+    ) {
         navigationController?.pushViewController(
-            UIHostingController(rootView: content),
+            createController(for: content, stepIdentifier: stepIdentifier),
             animated: isAnimated
         )
     }
@@ -63,14 +67,13 @@ final class FlowNavigator {
     /// split view, dan `FlowIslandHostingController` menandai controller-nya
     /// supaya gestur swipe-back milik UIKit tidak bertabrakan dengan gestur
     /// milik `NavigationView` di dalamnya.
-    func pushIsland<Content: View>(_ content: Content, isAnimated: Bool = true) {
-        let island = NavigationView {
-            content
-        }
-        .navigationViewStyle(StackNavigationViewStyle())
-
+    func pushIsland<Content: View>(
+        _ content: Content,
+        stepIdentifier: String? = nil,
+        isAnimated: Bool = true
+    ) {
         navigationController?.pushViewController(
-            FlowIslandHostingController(rootView: island),
+            createIslandController(for: content, stepIdentifier: stepIdentifier),
             animated: isAnimated
         )
     }
@@ -87,9 +90,31 @@ final class FlowNavigator {
 
     /// Membungkus satu layar menjadi controller, untuk disusun lewat `setStack`.
     func createController<Content: View>(
-        for content: Content
+        for content: Content,
+        stepIdentifier: String? = nil
     ) -> UIViewController {
-        UIHostingController(rootView: content)
+        let controller = FlowStepHostingController(rootView: content)
+        controller.stepIdentifier = stepIdentifier
+        return controller
+    }
+
+    /// Versi pulau, untuk tumpukan awal yang ikut memuat rangkaian SwiftUI lama.
+    ///
+    /// Dengan ini `setStack` bisa mencampur keduanya bebas — misalnya
+    /// `[landing, pulauLama, ringkasan]` — sehingga "masuk ke tengah" tetap
+    /// mungkin walau sebagian langkahnya belum dipindah.
+    func createIslandController<Content: View>(
+        for content: Content,
+        stepIdentifier: String? = nil
+    ) -> UIViewController {
+        let island = NavigationView {
+            content
+        }
+        .navigationViewStyle(StackNavigationViewStyle())
+
+        let controller = FlowIslandHostingController(rootView: island)
+        controller.stepIdentifier = stepIdentifier
+        return controller
     }
 
     /// Apakah layar teratas adalah layar pertama flow ini.
@@ -110,11 +135,46 @@ final class FlowNavigator {
         navigationController?.popToRootViewController(animated: isAnimated)
     }
 
-    /// Mundur ke layar tertentu di dalam flow ini.
+    /// Mundur ke langkah yang **disebut namanya**.
     ///
     /// Inilah yang tidak punya padanan di `NavigationView`, dan yang selalu
-    /// dibutuhkan flow transaksi: setelah konfirmasi berhasil, kembalinya bukan
-    /// satu langkah dan bukan ke root, tetapi ke satu titik tertentu.
+    /// dibutuhkan flow transaksi: A → B → C → D, lalu dari D kembali ke B.
+    ///
+    /// Memakai nama, bukan hitungan mundur, karena hitungan mundur rapuh —
+    /// begitu ada langkah bersyarat yang kadang masuk kadang tidak, angkanya
+    /// salah, dan salahnya baru terlihat di tangan pengguna.
+    ///
+    /// Kalau ada dua layar dengan nama yang sama di tumpukan, yang dituju adalah
+    /// yang **terdekat** dengan layar sekarang.
+    @discardableResult
+    func popTo(stepIdentifier: String, isAnimated: Bool = true) -> Bool {
+        guard let controllers = navigationController?.viewControllers else {
+            return false
+        }
+
+        let targetController = controllers.last { controller in
+            (controller as? FlowStepHosting)?.stepIdentifier == stepIdentifier
+        }
+
+        guard let targetController = targetController else {
+            assertionFailure(
+                """
+                No screen in the current stack is tagged "\(stepIdentifier)", \
+                so this call does nothing. Push it with the same identifier \
+                you pop back to.
+                """
+            )
+            return false
+        }
+
+        navigationController?.popToViewController(
+            targetController,
+            animated: isAnimated
+        )
+        return true
+    }
+
+    /// Versi berbasis hitungan. Dipakai hanya kalau langkahnya tidak bernama.
     func popTo(stepsBack: Int, isAnimated: Bool = true) {
         guard let navigationController = navigationController else { return }
 

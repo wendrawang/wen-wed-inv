@@ -87,6 +87,77 @@ sebelum memindahkan, bukan sesudah.
 
 ---
 
+## Mundur ke langkah yang Anda tentukan
+
+A → B → C → D, lalu dari D kembali ke B:
+
+```swift
+routing.goBack(to: .transactionAmount)
+```
+
+Menyebut **nama langkahnya**, bukan berapa kali mundur. Itu disengaja:
+hitungan mundur rapuh, karena begitu ada langkah bersyarat yang kadang ikut
+kadang tidak — dan flow transfer penuh dengan itu, lihat `startValasJourney` —
+angkanya salah, dan salahnya baru terlihat di tangan pengguna.
+
+Penandanya dipasang otomatis. `start(_:)` menandai tiap layar dengan
+`route.step`, jadi tidak ada yang perlu diingat saat mendorong. Kalau nama yang
+dituju tidak ada di tumpukan, `assertionFailure` di Debug — bukan diam saja.
+
+Kalau ada dua layar bernama sama di tumpukan, yang dituju yang terdekat dengan
+layar sekarang.
+
+Menambah langkah baru: tambahkan case-nya di `TransferRoute`, tambahkan
+padanannya di `TransferRoute.Step`, selesai. Kompilernya menagih keduanya.
+
+---
+
+## Bolak-balik SwiftUI dan UIKit di tengah flow
+
+Bisa, dan sebetulnya itu memang bentuk normalnya — asal jelas dulu apa yang
+berselang-seling.
+
+**Yang berselang-seling adalah isi layarnya, bukan sistem navigasinya.** Di
+dalam sebuah flow hanya ada **satu** tumpukan, milik `UINavigationController`.
+Isi tiap layarnya SwiftUI. Jadi tumpukan seperti ini normal dan tanpa
+kerumitan apa pun:
+
+```
+[ landing (SwiftUI baru) ]
+[ amount  (SwiftUI lama, di-push biasa) ]
+[ pulau   (rangkaian SwiftUI lama dengan NavigationView-nya) ]
+[ summary (SwiftUI baru) ]
+```
+
+Ketiga cara mendorongnya berdampingan bebas:
+
+```swift
+navigator.push(screen, stepIdentifier: "amount")           // layar tunggal
+navigator.pushIsland(coordinatorLama, stepIdentifier: "x") // rangkaian lama
+```
+
+dan untuk tumpukan awal, `setStack` bisa mencampur keduanya lewat
+`createController(for:stepIdentifier:)` dan
+`createIslandController(for:stepIdentifier:)`. Jadi masuk ke tengah pun tetap
+mungkin walau sebagian langkahnya belum dipindah.
+
+`goBack(to:)` menembus semuanya, termasuk melewati pulau, karena yang dibaca
+penanda langkah — bukan jenis layarnya.
+
+### Yang tidak bisa, dan sebaiknya tidak dicoba
+
+Yang **tidak** boleh berselang-seling adalah **sistem navigasinya**: flow modal
+di dalam flow modal. `AppRouter` hanya menyimpan satu `pendingFlow`, jadi itu
+sudah ditolak dengan `assertionFailure` — dan penolakan itu memang tujuannya.
+Begitu ada dua tumpukan modal, "tutup layar ini" berhenti punya jawaban tunggal.
+
+Satu catatan tentang pulau: setelah keluar dari pulau lalu masuk lagi, pulaunya
+masih di tumpukan yang sama, jadi kedalaman internalnya masih seperti
+ditinggalkan. Biasanya itu yang diinginkan; kalau tidak, pulau itu sudah harus
+jadi flow tersendiri.
+
+---
+
 ## `LazyNavigationLink` — masih dipakai, tapi bukan di sini
 
 Di dalam flow UIKit ia **tidak diperlukan sama sekali**. `navigator.push`

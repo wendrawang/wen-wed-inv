@@ -56,11 +56,9 @@ extension TransferFlowCoordinator {
     func createStack(enteringAt route: TransferRoute) -> [UIViewController] {
         if case .landing(let transferCart, let category) = route {
             return [
-                navigator.createController(
-                    for: createLandingScreen(
-                        transferCart: transferCart,
-                        category: category
-                    )
+                createLandingController(
+                    transferCart: transferCart,
+                    category: category
                 )
             ]
         }
@@ -76,15 +74,29 @@ extension TransferFlowCoordinator {
             return []
         }
 
-        let landingScreen = createLandingScreen(
-            transferCart: landingUseCase.repository.transferCart,
-            category: landingUseCase.repository.transferCategory
-        )
-
         return [
-            navigator.createController(for: landingScreen),
-            navigator.createController(for: destinationScreen)
+            createLandingController(
+                transferCart: landingUseCase.repository.transferCart,
+                category: landingUseCase.repository.transferCategory
+            ),
+            navigator.createController(
+                for: destinationScreen,
+                stepIdentifier: route.step.rawValue
+            )
         ]
+    }
+
+    private func createLandingController(
+        transferCart: TransferCart,
+        category: TransferCategory
+    ) -> UIViewController {
+        navigator.createController(
+            for: createLandingScreen(
+                transferCart: transferCart,
+                category: category
+            ),
+            stepIdentifier: TransferRoute.Step.landing.rawValue
+        )
     }
 }
 
@@ -93,7 +105,14 @@ extension TransferFlowCoordinator {
 extension TransferFlowCoordinator: TransferRouting {
 
     func start(_ route: TransferRoute) {
-        navigator.push(createScreen(for: route))
+        navigator.push(
+            createScreen(for: route),
+            stepIdentifier: route.step.rawValue
+        )
+    }
+
+    func goBack(to step: TransferRoute.Step) {
+        navigator.popTo(stepIdentifier: step.rawValue)
     }
 
     func goBack() {

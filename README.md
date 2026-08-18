@@ -17,6 +17,7 @@ Sources/Debug/RenderCounter.swift          penghitung evaluasi body (sementara)
 Sources/Navigation/LazyNavigationLink.swift  destination yang ditunda
 Sources/Navigation/FlowNavigator.swift     navigasi flow sebagai objek
 Sources/Navigation/FlowNavigationController.swift  bar tersembunyi + swipe back
+Sources/Navigation/FlowStepHostingController.swift  penanda langkah di tumpukan
 Sources/Navigation/FlowPresenter.swift     titik temu NavigationView ↔ UIKit
 Sources/Navigation/AppRouter.swift         router global + pemasangannya
 Examples/TransferFlow/                     flow transfer berbasis UIKit

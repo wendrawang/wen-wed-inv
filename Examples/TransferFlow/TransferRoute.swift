@@ -63,8 +63,66 @@ protocol TransferRouting: AnyObject {
     /// Mundur ke daftar penerima, berapa pun langkah yang sudah dilalui.
     func goBackToLanding()
 
+    /// Mundur ke langkah tertentu — A → B → C → D, lalu dari D kembali ke B.
+    ///
+    /// ```swift
+    /// routing.goBack(to: .transactionAmount)
+    /// ```
+    ///
+    /// Menyebut langkahnya, bukan berapa kali mundur, supaya tetap benar walau
+    /// ada langkah bersyarat yang kadang ikut kadang tidak.
+    func goBack(to step: TransferRoute.Step)
+
     /// Menutup seluruh flow dan kembali ke dunia SwiftUI.
     func finishFlow()
+}
+
+// MARK: - Nama langkah
+
+extension TransferRoute {
+
+    /// Nama langkah, tanpa muatannya.
+    ///
+    /// Dipakai untuk menyatakan "kembali ke langkah ini" — `goBack(to:)` hanya
+    /// perlu tahu langkah mana, bukan data apa yang dibawanya saat itu.
+    enum Step: String {
+        case landing
+        case newRecipient
+        case transactionAmount
+        case debitAccountSelection
+        case currencySelection
+        case countrySelection
+        case telegraphicRecipientForm
+        case bankSummary
+    }
+
+    var step: Step {
+        switch self {
+        case .landing:
+            return .landing
+
+        case .newRecipient:
+            return .newRecipient
+
+        case .transactionAmount:
+            return .transactionAmount
+
+        case .debitAccountSelection:
+            return .debitAccountSelection
+
+        case .currencySelection:
+            return .currencySelection
+
+        case .countrySelection:
+            return .countrySelection
+
+        case .telegraphicRecipientForm:
+            return .telegraphicRecipientForm
+
+        case .bankSummary:
+            return .bankSummary
+        }
+    }
 }
 
 // Pendaftarannya ke router global ada di `TransferFlowMount.swift`, supaya file
