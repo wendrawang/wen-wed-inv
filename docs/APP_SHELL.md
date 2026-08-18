@@ -44,6 +44,40 @@ tumbuh.
 App target menyusut pelan-pelan sampai tinggal komposisi. Tidak ada momen
 "pindah semua sekaligus", dan tidak ada bulan tanpa rilis.
 
+### Jawaban singkatnya: tetap di project yang ada
+
+Jangan buat project baru. Empat alasan, dan yang terakhir yang paling sering
+dilupakan.
+
+**Project baru tidak membuat kode lamanya hilang.** Anda tetap menyalinnya masuk.
+Yang didapat cuma file project bersih; kodenya sama persis, ditambah seminggu
+menelusuri build setting.
+
+**Yang bisa gagal diam-diam ada di konfigurasi, bukan di kode.** Entitlement,
+capability, app extension, code signing, Firebase, script CI. Sebagian gagalnya
+tidak kelihatan sampai di produksi — push notification mati, deeplink mati,
+keychain sharing mati.
+
+**Setiap langkah harus tetap bisa dirilis.** Dengan project yang ada, itu
+otomatis. Dengan project baru, tidak ada yang rilis sampai semuanya jalan.
+
+**File project justru makin mudah diganti seiring kode meninggalkannya.** Begitu
+sebagian besar kode ada di `Packages/`, App target tinggal tipis — dan
+menggantinya jadi pekerjaan sepele karena isinya sedikit. Mengerjakannya
+sekarang berarti memilih waktu yang paling sulit.
+
+Jadi: **package dulu, file project belakangan** — atau tidak sama sekali, kalau
+nanti ternyata sudah tidak mengganggu.
+
+### Kapan project baru justru benar
+
+Tiga keadaan, dan sepertinya tidak ada yang berlaku:
+
+- Project lamanya benar-benar tidak bisa dibangun ulang secara reprodusibel, dan
+  tidak ada yang paham lagi isi build setting-nya.
+- Bundle ID memang akan berganti — rebranding, pemisahan entitas.
+- Aplikasinya kecil.
+
 ### Kalau tetap ingin membenahi file project-nya
 
 Kerjakan sebagai pekerjaan tersendiri, terpisah dari kode:
