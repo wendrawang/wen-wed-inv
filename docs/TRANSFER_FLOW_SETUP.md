@@ -55,6 +55,53 @@ ganti `modalPresentationStyle` di `FlowPresenter`, bukan perubahan arsitektur.
 
 ---
 
+## Kapan `AppRouter`, kapan `navigator.push`
+
+Pembagian ini menentukan, dan salah menempatkannya menghasilkan kegagalan yang
+membingungkan.
+
+| | Dipakai untuk | Bentuknya di layar |
+|---|---|---|
+| `AppRouter.shared.start(...)` | **masuk ke sebuah flow** dari dunia SwiftUI | modal `.fullScreen` |
+| `navigator.push(...)` | berpindah **di dalam** flow yang sudah tampil | push, seperti biasa |
+
+Sekali sebuah flow tampil, memanggil `AppRouter.shared.start` lagi tidak
+menampilkan apa pun — hanya ada satu flow pada satu waktu. Dulu itu gagal
+diam-diam; sekarang `assertionFailure` di Debug.
+
+### Konsekuensi yang perlu diputuskan lebih dulu: animasinya berbeda
+
+Masuk flow adalah presentasi modal, jadi layarnya **naik dari bawah**, bukan
+menggeser dari kanan seperti push. Untuk Dashboard → Transfer itu wajar dan
+lazim. Tetapi kalau Anda memindahkan banyak layar kecil satu per satu, tiap
+layar jadi modal dan aplikasinya terasa berbeda.
+
+Karena itu: **pindahkan per flow, bukan per layar.** Sebuah flow adalah
+perjalanan berisi beberapa langkah. Layar daun tunggal yang dibuka dari
+Dashboard sebaiknya tetap di `NavigationView` sampai flow yang memuatnya ikut
+dipindah.
+
+Kalau nanti ada flow yang animasinya harus tetap menggeser dari kanan, itu bisa
+dengan `UIViewControllerTransitioningDelegate` sendiri — tetapi putuskan
+sebelum memindahkan, bukan sesudah.
+
+---
+
+## `LazyNavigationLink` — masih dipakai, tapi bukan di sini
+
+Di dalam flow UIKit ia **tidak diperlukan sama sekali**. `navigator.push`
+membangun layar tujuan pada saat berpindah; itu sudah lazy yang sesungguhnya,
+tanpa cache, tanpa `@State`, tanpa penanda dua tahap.
+
+Tetapi **jangan dihapus.** Ia masih menopang setiap layar yang belum dipindah —
+dan untuk beberapa waktu ke depan itu sebagian besar aplikasi. Perbaikan
+pelepasan cache di dalamnya juga masih berlaku di sana.
+
+Jadi: berhenti memakainya di flow yang sudah dipindah, biarkan bekerja di
+sisanya.
+
+---
+
 ## Yang sudah ada dan yang harus Anda sediakan
 
 | Sudah ada di repo | Harus Anda sediakan |
@@ -191,6 +238,31 @@ Ingat batasan swipe-back pulau di atas, dan bahwa pulau bukan tujuan akhir.
 
 Setelah satu jalur utuh jalan, tambahkan test kebocoran untuk ViewModel-nya —
 bentuknya sama dengan `testFactoryBuiltViewModelIsReleased`.
+
+---
+
+## Gaya Transfer Landing bisa dipakai sekarang, tanpa menunggu navigasi
+
+Ini bagian yang paling sering tertunda tanpa alasan. Semua yang kita kerjakan di
+`TransferLandingViewModel` **tidak bergantung pada keputusan navigasi** dan
+berlaku sama di kedua dunia:
+
+- `[weak self]` di setiap closure yang disimpan, termasuk yang dipasang sebagai
+  referensi method.
+- Membangun daftar ke array lokal, terbitkan sekali.
+- Cache baris supaya identitasnya bertahan antar halaman.
+- `input` ditulis sekali saat konstruksi, tidak pernah disentuh lagi.
+- Penjagaan nilai sebelum `objectWillChange.send()`.
+- Pembangunan layar dikeluarkan menjadi factory.
+- Test `trackForMemoryLeaks` untuk tiap ViewModel dan UseCase.
+
+Kerjakan itu di layar mana pun yang kebetulan Anda sentuh, sekarang. Kalau
+keputusan navigasinya nanti berubah, tidak ada satu pun dari daftar ini yang
+terbuang.
+
+Yang **harus** menunggu hanyalah yang menyebut tujuan: `onCreateNavigationLinks`,
+`LazyNavigationLink`, dan penanda dua tahap. Ketiganya load-bearing sampai
+penggantinya terbukti jalan.
 
 ---
 

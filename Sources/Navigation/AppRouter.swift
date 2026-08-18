@@ -62,7 +62,30 @@ final class AppRouter: ObservableObject {
 
     private init() {}
 
+    /// Membuka sebuah flow.
+    ///
+    /// **Ini pintu masuk flow, bukan cara berpindah di dalamnya.** Sekali sebuah
+    /// flow tampil, perpindahan berikutnya memakai `navigator.push` — memanggil
+    /// ini lagi tidak akan menampilkan apa pun, karena hanya ada satu flow pada
+    /// satu waktu.
+    ///
+    /// Dulu itu gagal diam-diam: `pendingFlow` berganti, `isPresenting` tetap
+    /// `true`, dan `FlowPresenter` menganggap tidak ada yang perlu dikerjakan.
+    /// Sekarang berisik di Debug.
     func start(_ flow: PendingFlow) {
+        if isPresenting {
+            assertionFailure(
+                """
+                A flow is already presented, so starting another one does \
+                nothing. Only one flow can be presented at a time. To move \
+                within the flow that is already open, push onto its \
+                FlowNavigator instead. To replace it, call finish() on the \
+                current flow first, then start the new one.
+                """
+            )
+            return
+        }
+
         pendingFlow = flow
     }
 
