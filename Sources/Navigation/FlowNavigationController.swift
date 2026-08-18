@@ -1,4 +1,3 @@
-import SwiftUI
 import UIKit
 
 /// `UINavigationController` untuk satu flow yang layarnya SwiftUI.
@@ -10,8 +9,18 @@ import UIKit
 ///    lapis kedua.
 /// 2. Gestur swipe-back dikembalikan. Menyembunyikan bar mematikan gestur itu,
 ///    dan `delegate = nil` yang biasa disarankan orang membuat crash ketika
-///    di-swipe di layar paling bawah. Delegate di bawah menolak gesturnya saat
-///    tumpukan hanya berisi satu layar.
+///    di-swipe di layar paling bawah.
+///
+/// ## Kenapa `override`, bukan `extension … : UIGestureRecognizerDelegate`
+///
+/// `UINavigationController` **sudah** conform ke `UIGestureRecognizerDelegate`
+/// dan sudah punya implementasi `gestureRecognizerShouldBegin`. Menyatakan
+/// konformansinya lagi berarti "Redundant conformance", dan menulis ulang
+/// method-nya tanpa `override` berarti "Overriding declaration requires an
+/// 'override' keyword".
+///
+/// Karena itu method-nya di-`override` **di dalam badan class** — Swift tidak
+/// mengizinkan `override` di dalam extension.
 final class FlowNavigationController: UINavigationController {
 
     /// Pemilik coordinator flow, dan satu-satunya referensi kuat kepadanya.
@@ -30,13 +39,13 @@ final class FlowNavigationController: UINavigationController {
         super.viewDidLoad()
 
         isNavigationBarHidden = true
+
+        // Delegate bawaannya objek internal UIKit yang mematikan gestur begitu
+        // bar disembunyikan. Diambil alih supaya jawabannya kita yang tentukan.
         interactivePopGestureRecognizer?.delegate = self
     }
-}
 
-extension FlowNavigationController: UIGestureRecognizerDelegate {
-
-    func gestureRecognizerShouldBegin(
+    override func gestureRecognizerShouldBegin(
         _ gestureRecognizer: UIGestureRecognizer
     ) -> Bool {
         if viewControllers.count <= 1 {
@@ -45,6 +54,8 @@ extension FlowNavigationController: UIGestureRecognizerDelegate {
 
         guard let islandController = topViewController,
               islandController is FlowIslandHosting else {
+            // Sengaja `true`, bukan `super`. Implementasi bawaannya justru
+            // menolak saat bar disembunyikan, dan itu yang sedang kita perbaiki.
             return true
         }
 
@@ -58,11 +69,11 @@ extension FlowNavigationController: UIGestureRecognizerDelegate {
     /// yang menangani; dua gestur aktif bersamaan membuat satu swipe memundurkan
     /// dua tingkat sekaligus.
     ///
-    /// **Best effort.** Ia bergantung pada `NavigationView` iOS 13–14 yang
-    /// ditopang `UINavigationController` di dalam hierarki child. Kalau tidak
-    /// ditemukan, jawabannya `false` — gestur luar dimatikan. Pilihan itu
-    /// disengaja: swipe yang tidak bereaksi masih bisa diselamatkan tombol back,
-    /// sedangkan mundur dua langkah tanpa disadari tidak.
+    /// **Best effort.** Ia bergantung pada `NavigationView` yang ditopang
+    /// `UINavigationController` di dalam hierarki child. Kalau tidak ditemukan,
+    /// jawabannya `false` — gestur luar dimatikan. Pilihan itu disengaja: swipe
+    /// yang tidak bereaksi masih bisa diselamatkan tombol back, sedangkan mundur
+    /// dua langkah tanpa disadari tidak.
     private func isIslandAtItsRoot(_ islandController: UIViewController) -> Bool {
         guard let innerNavigation = findNavigationController(
             in: islandController
