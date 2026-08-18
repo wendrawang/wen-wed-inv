@@ -21,21 +21,37 @@ dan itu sebabnya fitur dikerjakan terakhir.
 
 ## Package yang diusulkan
 
-Enam, bukan dua puluh. Batas package yang terlalu banyak menghabiskan lebih
-banyak waktu daripada yang dihemat.
+| Package | Isinya | Bergantung pada | Dibuat saat |
+|---|---|---|---|
+| **ByonNavigation** | `Sources/Navigation` + `DebugTool` | — | langkah 1, bisa paling awal |
+| **ByonFoundation** | `TypeAliases`, extension tanpa UI, konstanta murni, enum teknis | — | langkah 2 |
+| **ByonDesignSystem** | token visual (`Spaces`, `IconSizes`, warna, font), `UIViewModifier`, extension yang butuh UI | ByonFoundation | langkah 3 |
+| **ByonDomain** | `UseCase` base, model bersama, `Transformer` bersama, konstanta bisnis (`Currencies`) | ByonFoundation | langkah 4 |
+| **ByonAppRoutes** | `enum AppRoute` saja, tidak ada yang lain | ByonNavigation, ByonDomain | saat perpindahan lintas fitur pertama muncul |
+| **ByonUIKitchen** | `UIComponents`, `UIWidgets`, `UIForms`, `UINavigationBar`, `UIChart`, `UIViewRepresentable`, lalu `Screen` paling akhir | ByonDesignSystem, ByonFoundation | langkah 5 |
+| **`<Nama>`Feature** | layar + ViewModel + UseCase + model milik fitur, coordinator flow, `extension PendingFlow` | semua di atas | langkah 6, satu per squad |
+
+**Tetap di App target:** `Services`, `Managers`, `Resources`, `Assets`,
+`Configs`, `Entitlements`, `Vendors`, `Frameworks`, `R.generated`,
+`AppDelegate`/`SceneDelegate`, dan pemasangan `setFlowResolver`.
+
+### Arah dependensinya
 
 ```
-ByonFoundation      tanpa UI sama sekali
-    ↑
-ByonDesignSystem    token, modifier, style
-    ↑
-ByonUIKitchen       komponen yang bisa dipakai ulang
-    
-ByonDomain          UseCase base, model, transformer      (→ ByonFoundation)
-ByonNavigation      infrastruktur navigasi + lifecycle    (berdiri sendiri)
-
-<Nama>Feature       satu per fitur, dipotong dari UIScreens
+ByonFoundation ─┬─► ByonDesignSystem ──► ByonUIKitchen ─┐
+                └─► ByonDomain ───────────────────────┬─┤
+                                                      │ │
+ByonNavigation ──────────────────────────────────┬────┘ │
+                                                 │      │
+                              ByonAppRoutes ◄────┘      │
+                                    ▲                   │
+                                    └───────────── <Nama>Feature
+                                                        │
+                                             App target ◄┘
 ```
+
+Tidak ada panah yang kembali ke atas, dan **tidak ada panah antar fitur.** Itu
+yang harus tetap benar; sisanya bisa disesuaikan.
 
 ---
 
