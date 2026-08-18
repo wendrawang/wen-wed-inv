@@ -40,7 +40,7 @@ daftar muncul, tab dan pencarian bekerja, back kembali ke Dashboard, dan probe
 mencetak INIT/DEINIT berpasangan. Memecah lebih dulu hanya menambah satu
 variabel saat ada yang tidak beres — dan akan ada yang tidak beres.
 
-**Langkah 1 — `ByonNavigation`.** Isinya `Sources/Navigation` dan `Sources/Debug`.
+**Langkah 1 — `Navigation`.** Isinya `Sources/Navigation` dan `Sources/Debug`.
 Satu-satunya keputusan: `.invisible()` di `LazyNavigationLink` ikut dibawa, atau
 diganti padanan di dalam package.
 
@@ -103,10 +103,10 @@ pindah, yang justru menyenggol semua flow lama. Kebalikan dari yang Anda mau.
 
 ```
 Packages/
-  ByonNavigation/                    ← Sources/Navigation + Sources/Debug
+  Navigation/                    ← Sources/Navigation + Sources/Debug
 ```
 
-`ByonNavigation` sudah siap hari ini. Seluruh `Sources/` hanya mengimpor `SwiftUI`,
+`Navigation` sudah siap hari ini. Seluruh `Sources/` hanya mengimpor `SwiftUI`,
 `UIKit`, `Foundation`, dan `os.log`. Satu-satunya yang menyebut tipe project
 adalah `.invisible()` di `LazyNavigationLink` — sudah ditandai di kodenya, dan
 pilihannya dua: bawa modifier-nya ikut ke package, atau ganti dengan padanan di
@@ -114,7 +114,7 @@ dalam package.
 
 Yang **tetap di project**: seluruh networking, `TransferFlowCoordinator`,
 `TransferLandingFactory`, dan semua layarnya. Flow coordinator itu satu file dan
-tidak masalah tinggal di project — ia memakai `ByonNavigation`, bukan sebaliknya.
+tidak masalah tinggal di project — ia memakai `Navigation`, bukan sebaliknya.
 
 Hasil tahap ini sudah nyata: flow baru dibangun di atas package yang dependensinya
 nol, dan tidak ada satu baris pun flow lama yang tersentuh.
@@ -126,13 +126,13 @@ package sejak hari pertama:
 
 ```
 Packages/
-  ByonNavigation/                    navigasi + lifecycle
-  ByonUIKitchen/              Screen baru, token, komponen — untuk fitur baru
+  Navigation/                    navigasi + lifecycle
+  Components/              Screen baru, token, komponen — untuk fitur baru
   PaymentFeature/             fitur revamp pertama
 ```
 
 Fitur lama pindah belakangan, satu per satu, saat base UI-nya sudah punya
-padanan di `ByonUIKitchen`. Tidak ada momen "pindah semua sekaligus".
+padanan di `Components`. Tidak ada momen "pindah semua sekaligus".
 
 ---
 
@@ -382,13 +382,13 @@ layar".
 ## Dua biaya yang tetap ada
 
 **`public` di mana-mana**, termasuk inisialiser — dan inisialiser `public` tidak
-dibuatkan otomatis untuk struct. Untuk `ByonNavigation` ini pekerjaan setengah jam;
+dibuatkan otomatis untuk struct. Untuk `Navigation` ini pekerjaan setengah jam;
 untuk package fitur nanti, jauh lebih panjang.
 
 **`R.swift` menjadi per-module.** Ini yang paling menentukan di tahap 2, dan
 sebaiknya diputuskan sebelum package fitur pertama dibuat: resource fitur ikut
 pindah, atau naik ke package UI bersama. Di tahap 1 tidak muncul sama sekali,
-karena `ByonNavigation` tidak menyentuh resource.
+karena `Navigation` tidak menyentuh resource.
 
 ---
 
@@ -402,10 +402,10 @@ kebetulan:
   salah. Sebagai objek, ia bisa tinggal di mana pun — project sekarang, package
   nanti — tanpa mengubah apa pun di sekitarnya.
 - **Router global yang tidak tahu daftar tujuan.** `AppRouter` tidak menyebut
-  satu pun fitur, jadi `ByonNavigation` tidak pernah bergantung ke atas. Kalau daftar
+  satu pun fitur, jadi `Navigation` tidak pernah bergantung ke atas. Kalau daftar
   tujuannya global, package akan bergantung pada semua fitur dan graf-nya
   melingkar.
 
 Urutan yang disarankan tetap sama: buktikan navigasinya di satu flow lebih
-dulu, baru pindahkan `ByonNavigation` ke package. Memindahkan lebih dulu hanya
+dulu, baru pindahkan `Navigation` ke package. Memindahkan lebih dulu hanya
 menambah satu variabel saat ada yang tidak beres.

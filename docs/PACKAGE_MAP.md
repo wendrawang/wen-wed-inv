@@ -23,27 +23,41 @@ dan itu sebabnya fitur dikerjakan terakhir.
 
 | Package | Isinya | Bergantung pada | Dibuat saat |
 |---|---|---|---|
-| **ByonNavigation** | `Sources/Navigation` + `DebugTool` | — | langkah 1, bisa paling awal |
-| **ByonFoundation** | `TypeAliases`, extension tanpa UI, konstanta murni, enum teknis | — | langkah 2 |
-| **ByonDesignSystem** | token visual (`Spaces`, `IconSizes`, warna, font), `UIViewModifier`, extension yang butuh UI | ByonFoundation | langkah 3 |
-| **ByonDomain** | `UseCase` base, model bersama, `Transformer` bersama, konstanta bisnis (`Currencies`) | ByonFoundation | langkah 4 |
-| **ByonAppRoutes** | `enum AppRoute` saja, tidak ada yang lain | ByonNavigation, ByonDomain | saat perpindahan lintas fitur pertama muncul |
-| **ByonUIKitchen** | `UIComponents`, `UIWidgets`, `UIForms`, `UINavigationBar`, `UIChart`, `UIViewRepresentable`, lalu `Screen` paling akhir | ByonDesignSystem, ByonFoundation | langkah 5 |
+| **Navigation** | `Sources/Navigation` + `DebugTool` | — | langkah 1, bisa paling awal |
+| **Core** | `TypeAliases`, extension tanpa UI, konstanta murni, enum teknis | — | langkah 2 |
+| **DesignSystem** | token visual (`Spaces`, `IconSizes`, warna, font), `UIViewModifier`, extension yang butuh UI | Core | langkah 3 |
+| **Domain** | `UseCase` base, model bersama, `Transformer` bersama, konstanta bisnis (`Currencies`) | Core | langkah 4 |
+| **Routes** | `enum AppRoute` saja, tidak ada yang lain | Navigation, Domain | saat perpindahan lintas fitur pertama muncul |
+| **Components** | `UIComponents`, `UIWidgets`, `UIForms`, `UINavigationBar`, `UIChart`, `UIViewRepresentable`, lalu `Screen` paling akhir | DesignSystem, Core | langkah 5 |
 | **`<Nama>`Feature** | layar + ViewModel + UseCase + model milik fitur, coordinator flow, `extension PendingFlow` | semua di atas | langkah 6, satu per squad |
 
 **Tetap di App target:** `Services`, `Managers`, `Resources`, `Assets`,
 `Configs`, `Entitlements`, `Vendors`, `Frameworks`, `R.generated`,
 `AppDelegate`/`SceneDelegate`, dan pemasangan `setFlowResolver`.
 
+### Satu nama yang tidak boleh dipakai
+
+Prefiks aplikasi sengaja tidak dipakai supaya `import`-nya enak dibaca —
+`import Core`, `import DesignSystem`, `import Navigation`. Tetapi satu nama
+harus dihindari: **`Foundation`**. Itu framework Apple, dan package dengan nama
+itu menabraknya di setiap file yang mengimpor keduanya.
+
+Karena itu lapis paling bawah bernama `Core`, bukan `Foundation`.
+
+Nama lain yang lebih baik dijauhi karena alasan yang sama: `Combine`,
+`Dispatch`, `Network`, `Contacts`, `Intents`, `Charts` — semuanya framework
+Apple. `Charts` khususnya relevan kalau `UIChart` nanti jadi package sendiri;
+namai `Charting` atau `ChartComponents`.
+
 ### Arah dependensinya
 
 ```
-ByonFoundation ─┬─► ByonDesignSystem ──► ByonUIKitchen ─┐
-                └─► ByonDomain ───────────────────────┬─┤
+Core ─┬─► DesignSystem ──► Components ─┐
+                └─► Domain ───────────────────────┬─┤
                                                       │ │
-ByonNavigation ──────────────────────────────────┬────┘ │
+Navigation ──────────────────────────────────┬────┘ │
                                                  │      │
-                              ByonAppRoutes ◄────┘      │
+                              Routes ◄────┘      │
                                     ▲                   │
                                     └───────────── <Nama>Feature
                                                         │
@@ -55,10 +69,10 @@ yang harus tetap benar; sisanya bisa disesuaikan.
 
 ---
 
-## Satu package per fitur, dan `ByonNavigation` tidak ikut tumbuh
+## Satu package per fitur, dan `Navigation` tidak ikut tumbuh
 
 Kekhawatiran "ujungnya jadi massive" wajar, tapi namanya yang salah — salah
-saya. **`ByonNavigation` adalah infrastrukturnya, bukan kumpulan flow.** Isinya
+saya. **`Navigation` adalah infrastrukturnya, bukan kumpulan flow.** Isinya
 enam file: `AppRouter`, `FlowPresenter`, `FlowNavigationController`,
 `FlowNavigator`, `FlowStepHostingController`, `LazyNavigationLink`. Jumlah itu
 tidak berubah saat fitur kesepuluh ditambahkan — memang itu tujuan `PendingFlow`
@@ -86,25 +100,25 @@ Ukurannya: **satu package untuk satu domain yang dimiliki satu squad.**
 
 | Folder sekarang | Ke mana | Catatan |
 |---|---|---|
-| `TypeAliases` | **ByonFoundation** | daun, pindah pertama |
-| `Enums` | **ByonFoundation** / **ByonDomain** | pisahkan: enum teknis vs enum bisnis |
+| `TypeAliases` | **Core** | daun, pindah pertama |
+| `Enums` | **Core** / **Domain** | pisahkan: enum teknis vs enum bisnis |
 | `Constants` | **dipecah** | token visual → DesignSystem; konstanta bisnis → Domain; sisanya Foundation |
 | `Extensions` | **dipecah** | yang menyebut SwiftUI/UIKit → DesignSystem; sisanya Foundation |
 | `Utilities` | **buka dulu** | biasanya campuran; pecah mengikuti isinya, jangan pindah utuh |
 | `Commons` | **buka dulu** | nama yang tidak menolak apa pun — hampir pasti isinya tiga lapis berbeda |
 | `Systems` | **buka dulu** | tidak bisa ditebak dari namanya |
-| `UIViewModifier` | **ByonDesignSystem** | termasuk `.invisible()` dan `.setHidden()` |
-| `UIComponents` | **ByonUIKitchen** | |
-| `UIWidgets` | **ByonUIKitchen** | |
-| `UIForms` | **ByonUIKitchen** | |
-| `UINavigationBar` | **ByonUIKitchen** | |
-| `UIChart` | **ByonUIKitchen** | kandidat package sendiri kalau berat |
-| `UIViewRepresentable` | **ByonUIKitchen** | kecuali yang membungkus SDK pihak ketiga — itu tetap di app |
-| `UIContainer` | **ByonUIKitchen**, terakhir | kemungkinan berisi `Screen` — lihat catatan di bawah |
-| `UseCase` | **ByonDomain** | base-nya saja; UseCase milik fitur ikut fiturnya |
-| `Models` | **ByonDomain** + fitur | model bersama naik, model fitur ikut fiturnya |
-| `Transformer` | **ByonDomain** + fitur | aturan sama dengan Models |
-| `DebugTool` | **ByonNavigation** | gabung dengan `Sources/Debug` |
+| `UIViewModifier` | **DesignSystem** | termasuk `.invisible()` dan `.setHidden()` |
+| `UIComponents` | **Components** | |
+| `UIWidgets` | **Components** | |
+| `UIForms` | **Components** | |
+| `UINavigationBar` | **Components** | |
+| `UIChart` | **Components** | kandidat package sendiri kalau berat |
+| `UIViewRepresentable` | **Components** | kecuali yang membungkus SDK pihak ketiga — itu tetap di app |
+| `UIContainer` | **Components**, terakhir | kemungkinan berisi `Screen` — lihat catatan di bawah |
+| `UseCase` | **Domain** | base-nya saja; UseCase milik fitur ikut fiturnya |
+| `Models` | **Domain** + fitur | model bersama naik, model fitur ikut fiturnya |
+| `Transformer` | **Domain** + fitur | aturan sama dengan Models |
+| `DebugTool` | **Navigation** | gabung dengan `Sources/Debug` |
 | `UIScreens` | **dipotong per fitur** | pekerjaan terbesar, dikerjakan terakhir |
 | `Services` | **tetap di app** | networking tetap di project, sesuai keputusan Anda |
 | `Managers` | **tetap di app** | fitur menyebutnya lewat protokol yang fitur itu deklarasikan |
@@ -128,13 +142,13 @@ dan keuntungan package hilang.
 Jawabannya **satu package kontrak yang sangat kecil**:
 
 ```
-ByonAppRoutes            enum AppRoute, tidak berisi kode apa pun selain itu
-    ↑                    (bergantung ke ByonDomain untuk tipe muatannya)
+Routes            enum AppRoute, tidak berisi kode apa pun selain itu
+    ↑                    (bergantung ke Domain untuk tipe muatannya)
 semua package fitur
 ```
 
 ```swift
-// ByonAppRoutes — dilihat semua fitur, tidak melihat satu pun fitur
+// Routes — dilihat semua fitur, tidak melihat satu pun fitur
 public enum AppRoute: FlowRoute {
     case transfer(TransferCart)
     case payment(Bill)
@@ -161,7 +175,7 @@ AppRouter.shared.setFlowResolver { route in
 Yang didapat:
 
 - Fitur **tidak pernah** saling mengimpor. Graf-nya tetap pohon.
-- `ByonNavigation` tetap tidak tahu satu pun fitur — `FlowRoute` cuma penanda
+- `Navigation` tetap tidak tahu satu pun fitur — `FlowRoute` cuma penanda
   kosong.
 - Menambah perpindahan lintas fitur = satu case di `AppRoute` + satu baris di
   resolver. Package fitur yang dituju tidak disentuh.
@@ -187,12 +201,12 @@ komposisi yang memang tempatnya di App target.
 
 Terpisah, karena "base" di aplikasi Anda ada dua dan nasibnya berbeda.
 
-**`UseCase` base** → `ByonDomain`, dan bisa **lebih awal**. Ia tidak menyebut
-UI sama sekali; yang disebutnya `TypeAliases` dan model. Setelah `ByonFoundation`
+**`UseCase` base** → `Domain`, dan bisa **lebih awal**. Ia tidak menyebut
+UI sama sekali; yang disebutnya `TypeAliases` dan model. Setelah `Core`
 jadi, ini langkah berikutnya yang murah.
 
 **`Screen`, `ScreenContentViewModel`, `PaginationScreenContentViewModel`** →
-`ByonUIKitchen`, dan **paling akhir**. Ketiganya menyebut token, resource,
+`Components`, dan **paling akhir**. Ketiganya menyebut token, resource,
 analytic, snackbar, dan `AppState` sekaligus. Kalau dipindah sebelum lapis di
 bawahnya siap, ia menyeret semuanya dan setiap flow lama ikut tersenggol.
 
@@ -206,18 +220,18 @@ lapisannya berbeda:
 
 ```
 Extensions/
-  String+Formatting.swift      → ByonFoundation   (tanpa UI)
-  Int+Ordinal.swift            → ByonFoundation   (nextNumber, ordinalText)
-  Date+Display.swift           → ByonFoundation
-  View+Invisible.swift         → ByonDesignSystem (butuh SwiftUI)
-  Color+Semantic.swift         → ByonDesignSystem
-  UIApplication+EndEditing.swift → ByonDesignSystem (butuh UIKit)
+  String+Formatting.swift      → Core   (tanpa UI)
+  Int+Ordinal.swift            → Core   (nextNumber, ordinalText)
+  Date+Display.swift           → Core
+  View+Invisible.swift         → DesignSystem (butuh SwiftUI)
+  Color+Semantic.swift         → DesignSystem
+  UIApplication+EndEditing.swift → DesignSystem (butuh UIKit)
 ```
 
 Pemisahnya satu pertanyaan: **apakah file ini butuh `import SwiftUI` atau
 `import UIKit`?** Kalau tidak, ia Foundation. Kalau ya, ia DesignSystem.
 
-Gunanya nyata: `ByonFoundation` yang bersih dari UI bisa dipakai target test dan
+Gunanya nyata: `Core` yang bersih dari UI bisa dipakai target test dan
 lapisan domain tanpa menyeret SwiftUI ikut dikompilasi.
 
 ---
@@ -238,16 +252,16 @@ lebih sulit dibersihkan daripada sebelumnya.
 
 ## Urutan
 
-1. **`ByonFoundation`** — `TypeAliases`, extension non-UI, konstanta murni.
+1. **`Core`** — `TypeAliases`, extension non-UI, konstanta murni.
    Daun semua, nol risiko.
-2. **`ByonDesignSystem`** — token dari `Constants`, `UIViewModifier`, extension
+2. **`DesignSystem`** — token dari `Constants`, `UIViewModifier`, extension
    yang butuh UI.
-3. **`ByonDomain`** — `UseCase` base, model bersama, `Transformer` bersama.
-4. **`ByonNavigation`** — `Sources/Navigation` + `DebugTool`. Bisa kapan saja,
+3. **`Domain`** — `UseCase` base, model bersama, `Transformer` bersama.
+4. **`Navigation`** — `Sources/Navigation` + `DebugTool`. Bisa kapan saja,
    bahkan paling awal, karena tidak bergantung pada satu pun di atas.
 5. **Berhenti dan nilai ulang.** Empat package itu sudah membuat sisanya jauh
    lebih mudah, dan tidak satu pun menyentuh layar.
-6. **`ByonUIKitchen`** — komponen, lalu `Screen` paling akhir.
+6. **`Components`** — komponen, lalu `Screen` paling akhir.
 7. **Fitur pertama**, dipotong dari `UIScreens`. Mulai dari yang paling sedikit
    bergantung pada yang lain, bukan yang paling penting.
 
