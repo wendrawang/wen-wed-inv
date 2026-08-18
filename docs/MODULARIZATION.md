@@ -69,6 +69,145 @@ padanan di `UIKitchen`. Tidak ada momen "pindah semua sekaligus".
 
 ---
 
+## Kalau tipe-tipe itu memang mau dipindah ke Core
+
+Bisa, tapi biayanya sangat berbeda per tipe. Kalau diurutkan dari yang paling
+murah, urutannya juga jadi urutan mengerjakannya — karena yang di bawah
+bergantung pada yang di atas.
+
+### Lapis 1 — pindah apa adanya, nol risiko
+
+`Spaces`, `IconSizes`, `Currencies`, `TypeAliases`, `UIApplication.endEditing()`,
+dan sebagian besar `DefaultValues`.
+
+Semuanya nilai murni atau extension tanpa dependensi. Pindahkan, tambahkan
+`public`, selesai. Ini separuh dari 21 + 13 pemakaian yang kita hitung tadi, dan
+tidak ada satu pun yang bisa salah.
+
+Satu catatan kecil: `DefaultValues.emptyAnyView` butuh `import SwiftUI`, jadi
+taruh di target UI, bukan di target Foundation.
+
+### Lapis 2 — layanan: protokol di Core, implementasi tetap di project
+
+`AnalyticManager`, `AutomationIdentifierManager`.
+
+Keduanya singleton dengan katalog besar — daftar event, daftar identifier — dan
+katalog itu tumbuh mengikuti fitur. Memindahkan katalognya berarti Core ikut
+tahu setiap fitur, dan itu arah yang salah.
+
+Polanya sama dengan networking:
+
+```swift
+// Core — hanya bentuknya
+public protocol AnalyticTracking {
+    func track(_ event: AnalyticEvent)
+}
+
+// project — katalognya tetap di sini
+extension AnalyticManager: AnalyticTracking {}
+```
+
+Layar berhenti menulis `AnalyticManager.instance.analytics.visitTransferLanding`
+dan menerima event-nya dari luar. Itu memang refactor, tetapi bertahap: yang
+belum disentuh tetap memakai singleton-nya.
+
+`AutomationIdentifierManager` sebetulnya cuma kumpulan `String` tanpa
+dependensi, jadi kalau mau, ia boleh ikut Lapis 1 apa adanya.
+
+### Lapis 3 — resource
+
+`R.string`, `R.image`, dan `DialogCodes` yang isinya menyebut `R.string`.
+Bagian tersendiri di bawah.
+
+### Lapis 4 — base UI, dan ini pekerjaan yang sebenarnya
+
+`Screen`, `ScreenContentViewModel`, `PaginationScreenContentViewModel`.
+
+Sengaja ditaruh terakhir, karena ketiganya menyebut **semua** yang di atas —
+token, resource, analytic, snackbar, `AppState`. Memindahkannya lebih dulu
+berarti menyeret semuanya sekaligus, dan di situlah flow lama mulai tersenggol.
+
+Kalau Lapis 1–3 sudah beres, lapis ini jadi pekerjaan mekanis. Kalau belum, ia
+jadi proyek tersendiri.
+
+---
+
+## `R.swift` di local SPM
+
+### Cara kerjanya
+
+SPM punya dukungan resource sejak Swift 5.3. Target yang membawa resource
+mendeklarasikannya di `Package.swift`:
+
+```swift
+.target(
+    name: "CoreUI",
+    resources: [.process("Resources")]
+)
+```
+
+Isinya diakses lewat `Bundle.module` — konstanta yang dibuatkan SPM otomatis
+untuk setiap target yang punya resource.
+
+`R.swift` sendiri menyediakan SwiftPM build tool plugin sejak versi 7. **Pastikan
+versi yang Anda pakai sebelum merencanakan** — kalau proyek Anda masih di versi
+lama, plugin-nya belum ada dan jalurnya berbeda.
+
+### Yang berubah: `R` menjadi per-module
+
+Ini konsekuensi yang paling sering mengejutkan. `R` yang dihasilkan di `CoreUI`
+adalah tipe yang **berbeda** dari `R` di project. Kalau sebuah file mengimpor
+keduanya, `R.string.…` jadi ambigu dan harus ditulis lengkap:
+
+```swift
+CoreUI.R.string.button.next.text
+```
+
+Untuk ribuan pemakaian, itu bukan perubahan kecil.
+
+### Saran: jangan berbagi `R` antar module
+
+Yang jauh lebih murah:
+
+- **Resource fitur ikut fitur.** Setiap package fitur membawa string dan
+  asset-nya sendiri, menghasilkan `R` sendiri, dan tidak ada yang ambigu karena
+  tidak ada yang mengimpor dua `R` sekaligus.
+- **Yang benar-benar bersama** — "Lanjut", "Batal", ikon umum — naik ke `CoreUI`
+  dengan `R` yang `public`. Jumlahnya sedikit, jadi menulisnya lengkap tidak
+  memberatkan.
+
+Kalau `CoreUI`-nya kecil, pertimbangkan **tanpa R.swift sama sekali** di sana:
+
+```swift
+public enum CoreStrings {
+    public static let next = String(
+        localized: "button.next",
+        bundle: .module
+    )
+}
+```
+
+Tidak ada plugin, tidak ada langkah build tambahan, dan tetap aman dari salah
+ketik.
+
+### Satu jebakan senyap yang harus diketahui
+
+Asset di dalam package **tidak** ditemukan lewat `Image("nama")` biasa. Tanpa
+bundle-nya, SwiftUI mencari di main bundle, tidak menemukan apa-apa, dan
+menggambar kosong — **tanpa error, tanpa crash**.
+
+```swift
+Image("iconTransfer")                    // kosong, diam
+Image("iconTransfer", bundle: .module)   // benar
+```
+
+Ini langsung mengenai `ImageViewModel` Anda, yang menyimpan nama gambar sebagai
+`String`. Begitu ada asset yang tinggal di package, ia butuh `bundle` ikut
+disimpan — dan sebelum itu ada, setiap gambar dari package akan hilang diam-diam.
+Kalau Lapis 3 dikerjakan, kerjakan `ImageViewModel` di hari yang sama.
+
+---
+
 ## Networking tetap di project — lalu bagaimana package memanggilnya?
 
 Package mendeklarasikan **apa yang ia butuhkan**, project yang memenuhinya.
