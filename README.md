@@ -30,6 +30,7 @@ Examples/Base/UseCase+PropertyBindable.swift  konformansi binding, terpisah
 Examples/Base/Screen.swift                 tanpa ScreenContentViewModel terbuang
 docs/STATUS.md                             status semua temuan
 docs/NAVIGATION_DECISION.md                keputusan navigasi + urutan migrasi
+docs/TRANSFER_FLOW_SETUP.md                cara memulai flow transfer
 docs/MEASUREMENT_GUIDE.md                  cara mengukur dengan Instruments
 docs/LIFECYCLE_RULES.md                    aturan lifecycle
 docs/ACCESS_MATRIX.md                      matriks akses antar lapisan

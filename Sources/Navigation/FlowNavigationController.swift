@@ -51,13 +51,53 @@ extension FlowNavigationController: UIGestureRecognizerDelegate {
     func gestureRecognizerShouldBegin(
         _ gestureRecognizer: UIGestureRecognizer
     ) -> Bool {
-        // Saat pulau SwiftUI sedang di atas, `NavigationView` di dalamnya yang
-        // menangani swipe-back. Membiarkan keduanya aktif membuat satu swipe
-        // memundurkan dua tingkat sekaligus.
-        if topViewController is FlowIslandHosting {
+        if viewControllers.count <= 1 {
             return false
         }
 
-        return viewControllers.count > 1
+        guard let islandController = topViewController,
+              islandController is FlowIslandHosting else {
+            return true
+        }
+
+        return isIslandAtItsRoot(islandController)
+    }
+
+    /// Apakah pulau SwiftUI di atas sedang menampilkan layar pertamanya.
+    ///
+    /// Kalau ya, gestur luar yang harus jalan — swipe berarti keluar dari pulau.
+    /// Kalau pulaunya sudah mendorong layar sendiri, `NavigationView` di dalamnya
+    /// yang menangani; dua gestur aktif bersamaan membuat satu swipe memundurkan
+    /// dua tingkat sekaligus.
+    ///
+    /// **Best effort.** Ia bergantung pada `NavigationView` iOS 13–14 yang
+    /// ditopang `UINavigationController` di dalam hierarki child. Kalau tidak
+    /// ditemukan, jawabannya `false` — gestur luar dimatikan. Pilihan itu
+    /// disengaja: swipe yang tidak bereaksi masih bisa diselamatkan tombol back,
+    /// sedangkan mundur dua langkah tanpa disadari tidak.
+    private func isIslandAtItsRoot(_ islandController: UIViewController) -> Bool {
+        guard let innerNavigation = findNavigationController(
+            in: islandController
+        ) else {
+            return false
+        }
+
+        return innerNavigation.viewControllers.count <= 1
+    }
+
+    private func findNavigationController(
+        in controller: UIViewController
+    ) -> UINavigationController? {
+        for child in controller.children {
+            if let navigation = child as? UINavigationController {
+                return navigation
+            }
+
+            if let navigation = findNavigationController(in: child) {
+                return navigation
+            }
+        }
+
+        return nil
     }
 }

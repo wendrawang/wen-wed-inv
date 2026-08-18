@@ -1,0 +1,209 @@
+# Memulai flow transfer — apa yang dibutuhkan dan urutannya
+
+Panduan pemakaian untuk memindahkan flow transfer ke navigasi UIKit. Latar
+belakang keputusannya ada di [NAVIGATION_DECISION.md](NAVIGATION_DECISION.md);
+dokumen ini hanya langkah-langkahnya.
+
+---
+
+## Perilaku swipe-back, supaya tidak ada kejutan
+
+Tiga situasi, dan ketiganya berbeda. Ini yang paling sering ditanyakan lebih
+dulu karena langsung terasa penggunanya.
+
+### 1. Di dalam flow UIKit, termasuk ke layar SwiftUI yang di-push
+
+```swift
+navigator.push(Screen { SomeScreen(viewModel: createSomeViewModel()) })
+```
+
+Swipe-back **jalan**, dan kembali ke layar UIKit sebelumnya. Layar itu bukan
+"navigasi SwiftUI" — ia view SwiftUI yang duduk di tumpukan UIKit, jadi
+gesturnya gestur UIKit yang biasa. Tidak ada yang perlu disiapkan selain dua
+hal: layarnya tidak boleh membawa `NavigationView` sendiri, dan tombol back-nya
+memanggil `goBackOrFinish()`, bukan `presentationMode.dismiss()`.
+
+### 2. Ke pulau SwiftUI (`pushIsland`), yaitu rangkaian lama yang belum diurai
+
+Ada dua tumpukan yang bertumpuk, jadi jawabannya bergantung posisi:
+
+| Posisi | Swipe-back |
+|---|---|
+| Sedang di layar pertama pulau | keluar dari pulau, kembali ke layar UIKit sebelumnya |
+| Sudah masuk lebih dalam di pulau | mundur satu langkah **di dalam** pulau |
+
+`FlowNavigationController` memilih di antara keduanya dengan memeriksa
+kedalaman `NavigationView` di dalam pulau. Pemeriksaan itu **best effort** —
+ia mengandalkan `NavigationView` iOS 13–14 yang ditopang `UINavigationController`
+di hierarki child. Kalau tidak ditemukan, gestur luar dimatikan dan pengguna
+harus memakai tombol back. Pilihan itu disengaja: swipe yang tidak bereaksi
+masih bisa diselamatkan tombol back, mundur dua langkah tanpa disadari tidak.
+
+**Ini alasan lain untuk memakai pulau sesedikit mungkin.** Layar yang di-push
+biasa (situasi 1) tidak punya kerumitan ini sama sekali.
+
+### 3. Dari flow transfer kembali ke Dashboard
+
+**Tidak ada swipe-back**, dan itu disengaja. Flow-nya dipresentasikan
+`.fullScreen`, bukan sheet, supaya transaksi yang sedang disusun tidak bisa
+ditinggalkan di tengah lewat jalur yang tidak Anda kendalikan. Satu-satunya
+jalan keluar adalah tombol back di layar pertama flow, yang memanggil
+`goBackOrFinish()` → `finish()`.
+
+Kalau untuk flow lain nanti Anda justru **ingin** bisa di-swipe tutup, itu
+ganti `modalPresentationStyle` di `FlowPresenter`, bukan perubahan arsitektur.
+
+---
+
+## Yang sudah ada dan yang harus Anda sediakan
+
+| Sudah ada di repo | Harus Anda sediakan |
+|---|---|
+| `AppRouter`, `PendingFlow`, `.mountFlowRouter()` | pemasangan `.mountFlowRouter()` di Main |
+| `FlowNavigator`, `FlowNavigationController`, `FlowPresenter` | — |
+| `TransferRoute`, `TransferRouting` | — |
+| `TransferFlowCoordinator` + percabangannya | — |
+| `TransferLandingFactory` (layar landing lengkap) | nama property aksi back yang benar |
+| `TransferScreenFactories` (bentuknya) | `TransferScreenFactories.live` — tujuh closure |
+
+Tiga hal, itu saja.
+
+---
+
+## Langkah 1 — pasang router-nya
+
+Di view **paling luar** Main, di luar `NavigationView`:
+
+```swift
+struct MainView: View {
+    var body: some View {
+        NavigationView {
+            DashboardCoordinator()
+        }
+        .mountFlowRouter()
+    }
+}
+```
+
+Prelogin tidak disentuh.
+
+---
+
+## Langkah 2 — sediakan tujuh factory, isinya kosong dulu
+
+Sengaja kosong. Tujuannya membuktikan alasnya jalan sebelum ada yang dipindah.
+
+```swift
+extension TransferScreenFactories {
+    static let live = TransferScreenFactories(
+        createNewRecipient: { _, _ in AnyView(EmptyView()) },
+        createTransactionAmount: { _ in AnyView(EmptyView()) },
+        createDebitAccountSelection: { _ in AnyView(EmptyView()) },
+        createCurrencySelection: { _ in AnyView(EmptyView()) },
+        createCountrySelection: { _ in AnyView(EmptyView()) },
+        createTelegraphicRecipientForm: { _ in AnyView(EmptyView()) },
+        createBankSummary: { _ in AnyView(EmptyView()) }
+    )
+}
+```
+
+---
+
+## Langkah 3 — perbaiki satu baris di `TransferLandingFactory`
+
+Di `setupBackAction` saya menulis `viewModel.navigationBarViewModel.onTapBackButton`.
+Nama itu **tebakan** — saya belum pernah melihat isi `NavigationBarViewModel`.
+Ganti dengan nama yang sebenarnya. Yang penting aksinya memanggil
+`routing.onRequestBack(viewModel)`, bukan menutup layar sendiri.
+
+Kalau tombol back ditangani `Screen` lewat `@Environment(\.presentationMode)`,
+itu harus diganti untuk layar di dalam flow: `presentationMode.dismiss()` di
+dalam `UIHostingController` yang di-push tidak mem-pop tumpukannya.
+
+---
+
+## Langkah 4 — ganti cara Dashboard membuka transfer
+
+```swift
+// sebelumnya: selectionCoordinatorName = TransferLandingCoordinator.named
+AppRouter.shared.start(
+    .transfer(.landing(transferCart: TransferCart(), category: .idr))
+)
+```
+
+`TransferLandingCoordinator` yang lama **dibiarkan** di tempatnya. Ia masih
+dipakai jalur lain, dan menjadi pembanding kalau ada perilaku yang berbeda.
+
+---
+
+## Langkah 5 — uji alasnya, sebelum memindahkan apa pun
+
+Ini titik keputusannya. Kalau ada yang gagal di sini, gagalnya murah.
+
+1. Buka transfer dari Dashboard. Daftar penerima harus muncul dan memuat IDR.
+2. `UIHostingController` iOS 13 — periksa safe area atas dan bawah, keyboard
+   saat mengetik di kolom pencarian, dan bar SwiftUI Anda tampil normal.
+3. Ganti tab ke Valas dan Proxy. Daftarnya harus berganti.
+4. Ketik di pencarian. Daftarnya harus berganti.
+5. Tekan back. Harus kembali ke Dashboard, dan Dashboard utuh seperti
+   ditinggalkan.
+6. Pasang `LifecycleProbe` di `TransferLandingViewModel` dan
+   `TransferFlowCoordinator`. Buka–tutup tiga kali, lalu:
+
+```swift
+LifecycleTracker.shared.logSnapshot()
+```
+
+Yang dicari: `INIT` dan `DEINIT` berpasangan, dan snapshot-nya kosong setelah
+kembali ke Dashboard.
+
+Kalau keenamnya lolos, keputusan navigasinya terbukti di aplikasi Anda, bukan
+hanya di atas kertas.
+
+---
+
+## Langkah 6 — isi factory satu per satu
+
+Urutan yang paling hemat: **ikuti satu jalur transaksi sampai selesai**, jangan
+mengisi tujuh-tujuhnya sekaligus. Jalur IDR ke penerima tersimpan adalah yang
+paling sering dipakai, dan hanya melewati `createTransactionAmount`.
+
+Untuk tiap tujuan, dua pilihan:
+
+**a. Sudah punya waktu memindahkannya** — buat factory-nya seperti
+`TransferLandingFactory`: bangun UseCase dan `input`-nya, bangun ViewModel,
+sambungkan, kembalikan layarnya. Nilai yang dibutuhkan dibaca dari
+`useCase.output` memakai ekspresi yang sama persis dengan yang ada di
+`TransferLandingCoordinator+Destinations.swift` hari ini.
+
+**b. Belum** — pakai jembatan sementara:
+
+```swift
+createTransactionAmount: { useCase in
+    AnyView(
+        FlowIslandPlaceholder(useCase: useCase)   // bungkus coordinator lama
+    )
+}
+```
+
+atau langsung `navigator.pushIsland(CoordinatorLama(...))` dari coordinator.
+Ingat batasan swipe-back pulau di atas, dan bahwa pulau bukan tujuan akhir.
+
+Setelah satu jalur utuh jalan, tambahkan test kebocoran untuk ViewModel-nya —
+bentuknya sama dengan `testFactoryBuiltViewModelIsReleased`.
+
+---
+
+## Yang tidak berubah sama sekali
+
+Supaya jelas seberapa besar cakupannya:
+
+- Seluruh `ViewModel` dan `UseCase`, termasuk `TransferLandingViewModel` yang
+  baru kita bersihkan.
+- Aturan `input` / `output` / `repository` / `callback`.
+- Layar-layarnya sendiri — `TransferLandingScreen` tidak disentuh.
+- Prelogin.
+- Semua flow lain yang masih memakai `NavigationView`.
+
+Yang berubah hanya **siapa yang memutuskan perpindahan**, dan itu pindah dari
+pohon view ke sebuah objek.
