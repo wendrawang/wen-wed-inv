@@ -42,6 +42,7 @@ docs/STATUS.md                              status semua temuan
 docs/NAVIGATION_DECISION.md                 keputusan navigasi + urutan migrasi
 docs/NAVIGATIONSTACK_VS_UIKIT.md            perbandingan + alasan tetap di UIKit
 docs/MODERNISATION_ORDER.md                 urutan lima pekerjaan besar
+docs/APP_SHELL.md                           root, tab, dan blocker
 docs/MODULARIZATION.md                      rencana pecah ke local SPM
 docs/SHARED_CODE_LAYERS.md                  urutan merapikan kode bersama
 docs/PACKAGE_MAP.md                         daftar package + foldering + Package.swift
