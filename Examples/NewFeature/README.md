@@ -53,7 +53,13 @@ lingkaran.
 
 ## Contoh yang sudah jadi
 
-`../TransferFeature/` adalah flow yang sudah tumbuh besar — sembilan tujuan,
-butuh masuk ke tengah, dan layar tujuannya belum semua dipindah. Karena itu ia
-punya enum rute dan struct factory. **Jangan menyalin bentuk itu untuk flow
-baru**; salin folder ini.
+`../TransferFeature/Flow/TransferFlowCoordinator.swift` memakai bentuk yang
+sama persis dengan template ini — satu file, layar sebagai method privat,
+pendaftaran di bagian bawah. Yang berbeda hanya tiga hal, dan masing-masing
+punya alasannya:
+
+- `enum Step`, karena flow itu punya delapan tujuan dan butuh `goBack(to:)`.
+- Layar pertamanya dibangun lewat factory, karena layar itu punya dua pemanggil.
+- Tujuh method tujuannya masih kosong, menunggu diisi.
+
+Jadi bandingkan keduanya kalau ragu — bukan menyalin salah satunya buta.

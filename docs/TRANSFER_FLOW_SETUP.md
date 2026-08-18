@@ -142,20 +142,18 @@ factory. Untuk sebagian besar flow, itu bentuk akhirnya.
 masing-masing tambahan mulai perlu, dan empat hal yang paling sering keliru saat
 mengisinya.
 
-### Kenapa `Examples/TransferFeature/Flow/` punya lima file
+### Transfer dipakai sebagai contoh, dan bentuknya sama
 
-Supaya jelas dan tidak dijadikan patokan:
+`Examples/TransferFeature/Flow/` juga **satu file**, dengan bentuk yang persis
+sama dengan template. Bedanya hanya tiga, dan semuanya karena keadaan nyata:
 
-- `TransferRoute` ada karena transfer punya **sembilan** tujuan dan butuh masuk
-  ke tengah. Flow tiga layar tidak butuh itu.
-- `TransferScreenFactories` ada karena **saya belum pernah melihat** ketujuh
-  layar tujuannya, jadi coordinator-nya harus bisa dibangun tanpa mereka. Kalau
-  Anda menulis flow sendiri, layar-layarnya ada di tangan Anda — jadikan method
-  privat, dan file ini tidak perlu ada.
-- `+Journey` dan `TransferFlowMount` terpisah karena batas 250 baris.
-
-Dari lima file itu, yang benar-benar melekat pada "sebuah flow" hanya
-coordinator dan pendaftarannya.
+- `enum Step` ada karena flow ini punya delapan tujuan dan butuh
+  `goBack(to:)`. Flow tiga layar cukup memakai `navigator.pop()`.
+- Layar landing dibangun lewat `TransferLandingFactory`, bukan langsung, karena
+  layar itu punya **dua** pemanggil — flow ini dan `TransferLandingCoordinator`
+  lama yang masih melayani jalur `NavigationView`.
+- Tujuh method tujuannya masih mengembalikan `EmptyView()`. Itu tempat Anda
+  mengisi, satu per satu.
 
 ---
 

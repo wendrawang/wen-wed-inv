@@ -1,24 +1,30 @@
 import SwiftUI
 import UIKit
 
-/// Coordinator flow transfer — class biasa, bukan `View`.
+/// Coordinator flow transfer — **satu file, seperti flow lainnya.**
 ///
-/// Tugasnya dua, dan hanya dua: menyusun tumpukan awal, dan memutuskan tujuan
-/// berikutnya. Ia tidak tahu cara membangun satu pun layar tujuan (itu
-/// `TransferScreenFactories`) dan tidak tahu cara mendorongnya (itu
-/// `FlowNavigator`).
+/// Bentuknya sama persis dengan template di `Examples/NewFeature/`: class
+/// coordinator, layar sebagai method privat, dan pendaftaran `PendingFlow` di
+/// bagian bawah.
 ///
-/// ## Umur objek
-///
-/// Dititipkan ke `FlowNavigationController` lewat `retainForFlowLifetime`,
-/// karena seluruh layar hanya menyebutnya lewat `[weak self]` — tanpa satu
-/// pemilik yang tegas ia lepas begitu `createStack` selesai. Rantainya satu
-/// arah: controller → coordinator → navigator → (weak) controller. Modal
-/// ditutup, semuanya ikut lepas.
+/// Tugasnya dua: menyusun tumpukan awal, dan memutuskan tujuan berikutnya.
 final class TransferFlowCoordinator {
 
-    let navigator: FlowNavigator
-    let screenFactories: TransferScreenFactories
+    /// Nama langkah, untuk `goBack(to:)`. Konstanta, bukan string berserakan.
+    enum Step: String {
+        case landing
+        case newRecipient
+        case transactionAmount
+        case debitAccountSelection
+        case currencySelection
+        case countrySelection
+        case telegraphicRecipientForm
+        case bankSummary
+    }
+
+    private let navigator: FlowNavigator
+    private let transferCart: TransferCart
+    private let predefineTransferCategory: TransferCategory
 
     #if DEBUG
     private var lifecycleProbe: LifecycleProbe?
@@ -26,166 +32,202 @@ final class TransferFlowCoordinator {
 
     init(
         navigator: FlowNavigator,
-        screenFactories: TransferScreenFactories
+        transferCart: TransferCart,
+        predefineTransferCategory: TransferCategory = .unspecified
     ) {
         self.navigator = navigator
-        self.screenFactories = screenFactories
+        self.transferCart = transferCart
+        self.predefineTransferCategory = predefineTransferCategory
 
+        // Wajib. Seluruh layar menyebut coordinator lewat `[weak self]`, jadi
+        // tanpa ini ia lepas begitu `createStack()` selesai.
         navigator.retainForFlowLifetime(self)
 
         #if DEBUG
         lifecycleProbe = LifecycleProbe(self)
         #endif
     }
-}
 
-// MARK: - Tumpukan awal
-
-extension TransferFlowCoordinator {
-
-    /// Menyusun **seluruh** tumpukan awal, bukan hanya layar pertama.
-    ///
-    /// Masuk lewat landing menghasilkan satu layar. Masuk ke tengah — dari
-    /// deeplink, notifikasi, atau layar SwiftUI mana pun — menghasilkan landing
-    /// di bawah dan tujuannya di atas, supaya tombol back tetap masuk akal.
-    ///
-    /// Landing yang di bawah tidak langsung memuat data: `loadData()` dipicu
-    /// `onAppear`, dan layar yang tidak pernah tampil tidak memicunya. Itu perlu
-    /// dipastikan sekali di aplikasi — kalau ternyata `setViewControllers` ikut
-    /// memuat view-nya, ganti menjadi tumpukan satu layar untuk rute non-landing.
-    func createStack(enteringAt route: TransferRoute) -> [UIViewController] {
-        if case .landing(let transferCart, let category) = route {
-            return [
-                createLandingController(
-                    transferCart: transferCart,
-                    category: category
-                )
-            ]
-        }
-
-        return createMidFlowStack(for: route)
-    }
-
-    private func createMidFlowStack(
-        for route: TransferRoute
-    ) -> [UIViewController] {
-        guard let destinationScreen = screenFactories.createScreen(for: route),
-              let landingUseCase = route.landingUseCase else {
-            return []
-        }
-
-        return [
-            createLandingController(
-                transferCart: landingUseCase.repository.transferCart,
-                category: landingUseCase.repository.transferCategory
-            ),
+    func createStack() -> [UIViewController] {
+        [
             navigator.createController(
-                for: destinationScreen,
-                stepIdentifier: route.step.rawValue
+                for: createLandingScreen(),
+                stepIdentifier: Step.landing.rawValue
             )
         ]
     }
 
-    private func createLandingController(
-        transferCart: TransferCart,
-        category: TransferCategory
-    ) -> UIViewController {
-        navigator.createController(
-            for: createLandingScreen(
-                transferCart: transferCart,
-                category: category
-            ),
-            stepIdentifier: TransferRoute.Step.landing.rawValue
+    /// Mundur ke langkah bernama — misalnya dari ringkasan kembali ke nominal.
+    func goBack(to step: Step) {
+        navigator.popTo(stepIdentifier: step.rawValue)
+    }
+}
+
+// MARK: - Layar pertama
+
+extension TransferFlowCoordinator {
+
+    /// Memakai `TransferLandingFactory` karena layar ini punya **dua**
+    /// pemanggil: flow ini dan `TransferLandingCoordinator` lama yang masih
+    /// melayani jalur `NavigationView`. Layar yang hanya punya satu pemanggil
+    /// tidak perlu factory — bangun langsung di sini seperti contoh template.
+    private func createLandingScreen() -> some View {
+        TransferLandingFactory(
+            transferCart: transferCart,
+            predefineTransferCategory: predefineTransferCategory
+        )
+        .createScreen(routing: createLandingRouting())
+    }
+
+    /// `[weak self]` di ketiganya, dan ViewModel-nya **tidak** ditangkap —
+    /// ia datang sebagai parameter. Closure ini berakhir tersimpan di
+    /// `useCase.callback`, dan ViewModel menyimpan UseCase.
+    private func createLandingRouting() -> TransferLandingFactory.Routing {
+        TransferLandingFactory.Routing(
+            onRequestNewRecipient: { [weak self] viewModel in
+                self?.showNewRecipient(
+                    viewModel.useCase,
+                    category: viewModel.selectedTransferCategory
+                )
+            },
+            onSubmissionSucceed: { [weak self] viewModel in
+                self?.startAfterSubmission(viewModel.useCase)
+            },
+            // Landing adalah layar pertama tumpukan, jadi back menutup flow.
+            onRequestBack: { [weak self] _ in
+                self?.navigator.finish()
+            }
         )
     }
 }
 
-// MARK: - TransferRouting
+// MARK: - Percabangan setelah penerima dipilih
 
-extension TransferFlowCoordinator: TransferRouting {
+// Isinya **sama persis** dengan `startDestinationCoordinator`,
+// `startPrivateAccountJourney`, dan `startValasJourney` di
+// `TransferLandingCoordinator` — urutan `if`-nya, syaratnya, dan tujuannya tidak
+// diubah satu pun. Yang berganti hanya cara menyebut tujuannya.
+extension TransferFlowCoordinator {
 
-    func start(_ route: TransferRoute) {
-        navigator.push(
-            createScreen(for: route),
-            stepIdentifier: route.step.rawValue
-        )
-    }
-
-    func goBack(to step: TransferRoute.Step) {
-        navigator.popTo(stepIdentifier: step.rawValue)
-    }
-
-    func goBack() {
-        navigator.pop()
-    }
-
-    func goBackOrFinish() {
-        if navigator.isAtRoot {
-            finishFlow()
+    private func startAfterSubmission(_ useCase: TransferLandingUseCase) {
+        if useCase.output.transferCategory == .privateAccount {
+            startPrivateAccountJourney(useCase)
             return
         }
 
-        goBack()
-    }
-
-    func goBackToLanding() {
-        navigator.popToRoot()
-    }
-
-    func finishFlow() {
-        navigator.finish()
-    }
-
-    /// Landing dibangun sendiri di sini karena ia satu-satunya layar yang
-    /// factory-nya sudah dimiliki flow ini. Sisanya milik aplikasi.
-    private func createScreen(for route: TransferRoute) -> AnyView {
-        if case .landing(let transferCart, let category) = route {
-            return AnyView(
-                createLandingScreen(
-                    transferCart: transferCart,
-                    category: category
-                )
-            )
+        if useCase.output.transferCategory == .valas {
+            startValasJourney(useCase)
+            return
         }
 
-        guard let screen = screenFactories.createScreen(for: route) else {
-            assertionFailure(
-                """
-                No screen factory is registered for \(route). Every case of \
-                TransferRoute except .landing must be supplied through \
-                TransferScreenFactories where the flow is mounted.
-                """
-            )
-            return DefaultValues.emptyAnyView
+        showTransactionAmount(useCase)
+    }
+
+    private func startPrivateAccountJourney(_ useCase: TransferLandingUseCase) {
+        if useCase.repository.transferCart.targets.isEmpty {
+            showDebitAccountSelection(useCase)
+            return
         }
 
-        return screen
+        showTransactionAmount(useCase)
+    }
+
+    private func startValasJourney(_ useCase: TransferLandingUseCase) {
+        if !useCase.output.recipientAccount.bank.code.isEmpty {
+            showCurrencySelection(useCase)
+            return
+        }
+
+        if useCase.output.bank.code.isEmpty {
+            showCountrySelection(useCase)
+            return
+        }
+
+        if useCase.output.recipientAccount.accountName.isEmpty {
+            showTelegraphicRecipientForm(useCase)
+            return
+        }
+
+        showBankSummary(useCase)
     }
 }
 
-// MARK: - Rute
+// MARK: - Tujuan — yang perlu Anda isi
 
-extension TransferRoute {
+// Tujuh method di bawah ini sengaja kosong. Isi satu per satu, mengikuti satu
+// jalur transaksi sampai selesai — jalur IDR ke penerima tersimpan hanya
+// melewati `showTransactionAmount`.
+//
+// Bentuk isiannya sama dengan `createLandingScreen()`: bangun UseCase, isi
+// `input`-nya dari `useCase.output`, bangun ViewModel, pasang aksi back-nya ke
+// `navigator.pop()`, lalu kembalikan `Screen { … }`.
+extension TransferFlowCoordinator {
 
-    /// UseCase landing yang dibawa rute ini, kalau ada.
-    ///
-    /// Dipakai saat masuk ke tengah flow: dari sinilah keranjang dan kategori
-    /// untuk layar landing di bawahnya dibaca.
-    var landingUseCase: TransferLandingUseCase? {
-        switch self {
-        case .landing:
-            return nil
+    private func showNewRecipient(
+        _ useCase: TransferLandingUseCase,
+        category: TransferCategory
+    ) {
+        navigator.push(EmptyView(), stepIdentifier: Step.newRecipient.rawValue)
+    }
 
-        case .newRecipient(let useCase, _):
-            return useCase
+    private func showTransactionAmount(_ useCase: TransferLandingUseCase) {
+        navigator.push(
+            EmptyView(),
+            stepIdentifier: Step.transactionAmount.rawValue
+        )
+    }
 
-        case .transactionAmount(let useCase),
-             .debitAccountSelection(let useCase),
-             .currencySelection(let useCase),
-             .countrySelection(let useCase),
-             .telegraphicRecipientForm(let useCase),
-             .bankSummary(let useCase):
-            return useCase
+    private func showDebitAccountSelection(_ useCase: TransferLandingUseCase) {
+        navigator.push(
+            EmptyView(),
+            stepIdentifier: Step.debitAccountSelection.rawValue
+        )
+    }
+
+    private func showCurrencySelection(_ useCase: TransferLandingUseCase) {
+        navigator.push(
+            EmptyView(),
+            stepIdentifier: Step.currencySelection.rawValue
+        )
+    }
+
+    private func showCountrySelection(_ useCase: TransferLandingUseCase) {
+        navigator.push(
+            EmptyView(),
+            stepIdentifier: Step.countrySelection.rawValue
+        )
+    }
+
+    private func showTelegraphicRecipientForm(_ useCase: TransferLandingUseCase) {
+        navigator.push(
+            EmptyView(),
+            stepIdentifier: Step.telegraphicRecipientForm.rawValue
+        )
+    }
+
+    private func showBankSummary(_ useCase: TransferLandingUseCase) {
+        navigator.push(EmptyView(), stepIdentifier: Step.bankSummary.rawValue)
+    }
+}
+
+// MARK: - Pendaftaran ke router global
+
+extension PendingFlow {
+
+    /// ```swift
+    /// AppRouter.shared.start(.transfer(transferCart: TransferCart()))
+    /// ```
+    static func transfer(
+        transferCart: TransferCart,
+        predefineTransferCategory: TransferCategory = .unspecified
+    ) -> PendingFlow {
+        PendingFlow { navigator in
+            TransferFlowCoordinator(
+                navigator: navigator,
+                transferCart: transferCart,
+                predefineTransferCategory: predefineTransferCategory
+            )
+            .createStack()
         }
     }
 }

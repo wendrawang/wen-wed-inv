@@ -28,7 +28,7 @@ Examples/NewFeature/README.md               apa yang wajib, apa yang menyusul
 Examples/NewFeature/NewFeatureFlowCoordinator.swift  satu-satunya file wajib
 
 ── SATU FITUR = SATU FOLDER ───────────────────────────────────────────────
-Examples/TransferFeature/Flow/              perutean flow transfer
+Examples/TransferFeature/Flow/              perutean flow transfer — 1 file
 Examples/TransferFeature/Landing/           layar daftar penerima
 Examples/DetailCardInfo/                    layar daun, masih NavigationView
 
