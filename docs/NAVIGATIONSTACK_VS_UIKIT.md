@@ -1,7 +1,13 @@
 # `NavigationStack` atau `UINavigationController`
 
-Kalau minimum iOS bisa dinaikkan ke 16, jawabannya **`NavigationStack`** —
-dan infrastruktur yang kita bangun justru menyusut, bukan bertambah.
+> **Keputusan: tetap `UINavigationController`.** Diambil setelah membaca
+> perbandingan di bawah, dengan minimum iOS tidak jadi dinaikkan. Dokumen ini
+> disimpan sebagai catatan alasannya, bukan sebagai pertanyaan terbuka — supaya
+> tidak dibahas ulang dari nol enam bulan lagi.
+>
+> Rekomendasi saya waktu itu `NavigationStack`, dengan syarat minimum iOS bisa
+> naik ke 16. Syarat itu tidak terpenuhi, jadi rekomendasinya tidak berlaku.
+> Isi dokumen ini tetap ditulis apa adanya di bawah.
 
 ---
 
@@ -199,3 +205,28 @@ Jangan menulis flow transfer dua kali.
 Kalau minimum iOS-nya sudah pasti naik, saya sarankan **langsung ke
 `NavigationStack`** dan lewati lapis UIKit sama sekali. Infrastrukturnya lebih
 kecil, dan tidak ada jembatan yang harus dirawat selamanya.
+
+
+---
+
+## Yang berlaku sekarang, setelah keputusannya diambil
+
+Tidak ada satu pun kode yang berubah — semua yang sudah dibangun memang jalur
+UIKit. Yang perlu dicatat hanya dua hal.
+
+**Empat biaya jembatan yang diterima**, supaya tim tahu apa yang dianggarkan:
+kejanggalan `UIHostingController` di iOS 13 (safe area, keyboard), gestur
+swipe-back yang harus dikembalikan manual, arti tombol back yang berbeda antara
+layar pertama dan layar tengah, dan kepemilikan coordinator yang harus
+dinyatakan lewat `retainForFlowLifetime`. Keempatnya sudah ditangani; yang perlu
+diingat adalah bahwa layar baru ikut menanggungnya.
+
+**Satu pintu yang bisa dibiarkan terbuka dengan murah.** Kalau nanti minimum iOS
+naik dan `NavigationStack` jadi masuk akal, biaya pindahnya jauh lebih kecil bila
+rute berupa **value type yang `Hashable`** — membawa kunci, bukan objek.
+`TransferRoute` sekarang membawa `TransferLandingUseCase`, dan itu satu-satunya
+hal yang menghalangi.
+
+Mengubahnya bukan keharusan hari ini, dan tidak memberi manfaat langsung di
+jalur UIKit. Tetapi kalau kelak dipertimbangkan, itu perubahan yang paling
+menentukan — jadi ada baiknya diketahui sekarang, bukan ditemukan nanti.
