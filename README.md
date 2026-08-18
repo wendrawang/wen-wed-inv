@@ -38,6 +38,7 @@ Examples/Base/UseCase+PropertyBindable.swift  konformansi binding, terpisah
 Examples/Base/Screen.swift                  tanpa ScreenContentViewModel terbuang
 
 ── DOKUMEN ────────────────────────────────────────────────────────────────
+docs/FIRST_SLICE.md                         MULAI DARI SINI — irisan pertama
 docs/STATUS.md                              status semua temuan
 docs/NAVIGATION_DECISION.md                 keputusan navigasi + urutan migrasi
 docs/NAVIGATIONSTACK_VS_UIKIT.md            perbandingan + alasan tetap di UIKit
@@ -71,6 +72,9 @@ sebenarnya. Dan dua test terakhir di `TransferFeature/Landing/TransferLandingVie
 membutuhkan `RecipientService` yang di-stub. Test lainnya berjalan apa adanya.
 
 ## Cara memakai
+
+**Memulai revamp** — [docs/FIRST_SLICE.md](docs/FIRST_SLICE.md). Kalau hanya satu
+dokumen yang sempat dibaca, itu. Sisanya rujukan saat dibutuhkan.
 
 **Menulis flow baru** — salin `Examples/NewFeature/`. Satu file wajib, dan
 [README-nya](Examples/NewFeature/README.md) menjelaskan apa yang baru menyusul
