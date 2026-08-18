@@ -198,6 +198,91 @@ boleh bisa ditinggalkan di tengah lewat jalur yang tidak Anda kendalikan.
 
 ---
 
+## Memasangnya di aplikasi Anda
+
+Struktur sekarang: `NavigationView` ada di Main dan di Prelogin; Main berisi
+Dashboard; Dashboard membuka Transfer Landing.
+
+**Prelogin tidak tersentuh sama sekali.** Yang berubah hanya satu tempat.
+
+### Di mana dipasang
+
+Di view **paling luar** Main, di luar `NavigationView`-nya:
+
+```swift
+struct MainView: View {
+    var body: some View {
+        NavigationView {
+            DashboardCoordinator()
+        }
+        .mountTransferFlow(screenFactories: transferScreenFactories)
+    }
+}
+```
+
+Di luar, bukan di dalam Dashboard, karena dua alasan. Pertama, flow-nya jadi
+bisa dibuka dari tab mana pun dan dari layar mana pun — termasuk layar yang
+sedang tampil di atas Dashboard. Kedua, `FlowPresenter` mempresentasikan dari
+view controller tempat ia menempel; kalau ia menempel pada layar yang bisa
+hilang dari pohon, presentasinya bisa tertunda tanpa pernah terjadi.
+
+### Bagaimana Dashboard membukanya
+
+Tombol transfer di Dashboard tidak lagi menyalakan
+`selectionCoordinatorName`, melainkan:
+
+```swift
+transferFlowEntry.start(
+    .landing(transferCart: TransferCart(), category: .idr)
+)
+```
+
+Tidak ada `@State`, tidak ada `Binding`, tidak ada `NavigationLink` yang harus
+berdiri lebih dulu di pohon Dashboard. Dan karena `transferFlowEntry` global,
+layar lain nanti bisa memakai baris yang sama persis.
+
+### Apa yang terjadi pada Dashboard selama flow tampil
+
+Ia tetap ada, hanya tertutup. Saat flow ditutup, Dashboard kembali **persis
+seperti ditinggalkan** — posisi scroll, tab yang aktif, semuanya. Ini justru
+lebih baik daripada sekarang, karena `NavigationView` di iOS 13 tidak
+menjamin itu.
+
+### Satu hal yang berubah perilakunya: tombol back layar pertama
+
+Di `NavigationView`, Transfer Landing punya induk di tumpukan yang sama, jadi
+back berarti mundur ke Dashboard. Sebagai layar pertama tumpukan modal, tidak
+ada yang bisa dimundur — back harus **menutup flow**.
+
+Karena itu `TransferLandingFactory.Routing` punya `onRequestBack`, dan
+nilainya berbeda di kedua dunia: `selectionCoordinatorName = nil` di
+`NavigationView`, `goBackOrFinish()` di flow. `goBackOrFinish()` memilih
+sendiri berdasarkan posisi layar, jadi layar yang sama bisa dipakai sebagai
+layar pertama maupun layar tengah tanpa diubah.
+
+Kalau tombol back di proyek Anda ditangani `Screen` lewat
+`@Environment(\.presentationMode)`, itu **harus** diganti untuk layar di dalam
+flow: `presentationMode.dismiss()` di dalam `UIHostingController` yang di-push
+tidak mem-pop tumpukannya.
+
+### Uji sepuluh menit sebelum memindahkan apa pun
+
+Urutannya sengaja: yang paling mungkin bermasalah diuji paling murah.
+
+1. Pasang `.mountTransferFlow` dengan tujuh factory yang isinya masih
+   `AnyView(EmptyView())`. Buka dari Dashboard dengan `.landing`.
+2. Periksa yang bergantung pada `UIHostingController` iOS 13 — safe area di
+   atas dan bawah, keyboard saat mengetik di kolom pencarian, dan bar SwiftUI
+   Anda tampil normal.
+3. Tekan back di landing. Harus kembali ke Dashboard dengan Dashboard utuh.
+4. Pasang probe di `TransferLandingViewModel` dan `TransferFlowCoordinator`.
+   Buka–tutup tiga kali. Yang dicari: INIT dan DEINIT berpasangan, dan
+   `liveTypes()` kosong setelah kembali.
+
+Kalau keempatnya lolos, sisanya tinggal mengisi factory satu per satu.
+
+---
+
 ## Persimpangan: keluar-masuk antara dua dunia
 
 Ini bagian yang paling menentukan apakah migrasi bertahap bisa berjalan, karena

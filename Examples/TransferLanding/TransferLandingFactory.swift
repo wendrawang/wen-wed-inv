@@ -39,6 +39,15 @@ struct TransferLandingFactory {
         /// Penerima sudah dipilih dan inquiry berhasil. Hasilnya dibaca dari
         /// `viewModel.useCase.output`.
         var onSubmissionSucceed: (TransferLandingViewModel) -> Void
+
+        /// Pengguna menekan tombol back.
+        ///
+        /// Wajib diisi karena artinya **berbeda di kedua dunia**, dan itu tidak
+        /// bisa disimpulkan dari dalam sini. Di `NavigationView`, layar ini
+        /// punya induk di tumpukan yang sama, jadi back berarti mundur. Di flow
+        /// UIKit, layar ini adalah layar pertama tumpukan modal, jadi back
+        /// berarti menutup seluruh flow — `goBackOrFinish()`.
+        var onRequestBack: (TransferLandingViewModel) -> Void
     }
 
     private let transferCart: TransferCart
@@ -82,6 +91,7 @@ extension TransferLandingFactory {
 
         setupNewRecipientAction(on: viewModel, routing: routing)
         setupSubmissionRouting(on: useCase, viewModel: viewModel, routing: routing)
+        setupBackAction(on: viewModel, routing: routing)
 
         viewModel.setUseCase(useCase)
 
@@ -131,6 +141,28 @@ extension TransferLandingFactory {
             ]
 
             routing.onRequestNewRecipient(viewModel)
+        }
+    }
+
+    /// ⚠️ **Satu baris di sini perlu Anda sesuaikan.**
+    ///
+    /// Saya belum pernah melihat isi `NavigationBarViewModel`, jadi nama
+    /// property aksi back-nya (`onTapBackButton` di bawah) adalah tebakan.
+    /// Ganti dengan nama yang sebenarnya — yang penting aksinya memanggil
+    /// `routing.onRequestBack`, bukan menutup layar sendiri.
+    ///
+    /// Kalau di proyek Anda tombol back ditangani `Screen` lewat
+    /// `@Environment(\.presentationMode)`, itu **harus** diganti untuk layar di
+    /// dalam flow UIKit: `presentationMode.dismiss()` di dalam
+    /// `UIHostingController` yang di-push tidak mem-pop tumpukannya.
+    private func setupBackAction(
+        on viewModel: TransferLandingViewModel,
+        routing: Routing
+    ) {
+        viewModel.navigationBarViewModel.onTapBackButton = { [weak viewModel] in
+            guard let viewModel = viewModel else { return }
+
+            routing.onRequestBack(viewModel)
         }
     }
 

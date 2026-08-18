@@ -100,6 +100,15 @@ extension TransferFlowCoordinator: TransferRouting {
         navigator.pop()
     }
 
+    func goBackOrFinish() {
+        if navigator.isAtRoot {
+            finishFlow()
+            return
+        }
+
+        goBack()
+    }
+
     func goBackToLanding() {
         navigator.popToRoot()
     }

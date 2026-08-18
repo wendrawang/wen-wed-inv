@@ -92,6 +92,16 @@ final class FlowNavigator {
         UIHostingController(rootView: content)
     }
 
+    /// Apakah layar teratas adalah layar pertama flow ini.
+    ///
+    /// Dipakai untuk memutuskan arti tombol back: di layar pertama, back berarti
+    /// **menutup flow**, bukan mundur. Di `NavigationView` perbedaan ini tidak
+    /// pernah muncul karena layar pertama flow tetap punya induk di tumpukan
+    /// yang sama.
+    var isAtRoot: Bool {
+        (navigationController?.viewControllers.count ?? 0) <= 1
+    }
+
     func pop(isAnimated: Bool = true) {
         navigationController?.popViewController(animated: isAnimated)
     }

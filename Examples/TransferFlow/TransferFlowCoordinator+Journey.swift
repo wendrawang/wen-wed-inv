@@ -40,6 +40,11 @@ extension TransferFlowCoordinator {
             },
             onSubmissionSucceed: { [weak self] viewModel in
                 self?.startAfterSubmission(viewModel.useCase)
+            },
+            // Landing adalah layar pertama tumpukan, jadi back di sini berarti
+            // menutup flow dan kembali ke Dashboard.
+            onRequestBack: { [weak self] _ in
+                self?.goBackOrFinish()
             }
         )
     }

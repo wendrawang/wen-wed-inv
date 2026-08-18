@@ -100,6 +100,13 @@ extension TransferLandingCoordinator {
                     for: viewModel.useCase,
                     on: viewModel
                 )
+            },
+            // PERUBAHAN: aksi back sekarang lewat `Routing`, supaya artinya
+            // ditentukan pemanggil. Di dunia `NavigationView` artinya tetap
+            // seperti semula — melepas selection, sehingga layar ini di-pop dan
+            // Dashboard kembali tampil.
+            onRequestBack: { _ in
+                selectionCoordinatorName = nil
             }
         )
     }

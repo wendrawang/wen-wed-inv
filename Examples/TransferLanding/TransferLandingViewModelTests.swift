@@ -56,7 +56,8 @@ final class TransferLandingViewModelTests: XCTestCase {
         let sut = factory.createViewModel(
             routing: TransferLandingFactory.Routing(
                 onRequestNewRecipient: { _ in },
-                onSubmissionSucceed: { _ in }
+                onSubmissionSucceed: { _ in },
+                onRequestBack: { _ in }
             )
         )
 

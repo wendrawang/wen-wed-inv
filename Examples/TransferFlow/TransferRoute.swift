@@ -50,6 +50,16 @@ protocol TransferRouting: AnyObject {
     /// Mundur satu layar.
     func goBack()
 
+    /// Arti tombol back yang sebenarnya untuk sebuah layar di dalam flow.
+    ///
+    /// Di layar pertama flow, back berarti **menutup flow** dan kembali ke
+    /// dunia SwiftUI; di layar mana pun setelahnya, back berarti mundur satu
+    /// langkah. Perbedaan ini tidak pernah muncul di `NavigationView`, karena di
+    /// sana layar pertama sebuah flow tetap punya induk di tumpukan yang sama.
+    ///
+    /// Ini yang harus dipasang ke tombol back layar, bukan `goBack()`.
+    func goBackOrFinish()
+
     /// Mundur ke daftar penerima, berapa pun langkah yang sudah dilalui.
     func goBackToLanding()
 
