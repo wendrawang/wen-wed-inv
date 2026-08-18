@@ -19,6 +19,67 @@ dan itu sebabnya fitur dikerjakan terakhir.
 
 ---
 
+## Di mana package-nya ditaruh
+
+**Selevel dengan `Byon/`, di root repo — bukan di dalamnya.**
+
+```
+repo/
+  Byon.xcodeproj
+  Byon/                     ← target aplikasi, menyusut seiring waktu
+  ByonTests/
+  Packages/
+    Platform/               ← satu Package.swift, banyak target
+      Sources/
+        Core/
+        DesignSystem/
+        Domain/
+        Components/
+        Navigation/
+        Routes/
+      Tests/
+    TransferFeature/        ← satu package per fitur, satu pemilik
+    PaymentFeature/
+  Frameworks/
+```
+
+Empat alasan, dan yang pertama paling menentukan:
+
+1. **Arah dependensinya App → Package.** Menaruh package di dalam `Byon/`
+   menyiratkan kebalikannya, dan orang baru akan membacanya begitu.
+2. **`Byon/` adalah sumber target aplikasi.** File di dalamnya mudah ikut
+   ter-*target membership* tanpa sengaja — dan file package yang juga
+   dikompilasi App target adalah bug yang membingungkan.
+3. **CODEOWNERS, CI, dan cache** lebih bersih dengan `Packages/*` sebagai jalur
+   tersendiri.
+4. **`swift build` dan `swift test`** bisa dijalankan langsung dari folder
+   package-nya, tanpa Xcode sama sekali. Itu yang membuat CI per squad murah.
+
+### Satu package untuk lapis bersama, satu per fitur
+
+`Platform` menampung enam target sekaligus, bukan enam package. Alasannya
+praktis: keenamnya berubah bersamaan dan dimiliki orang yang sama, sementara
+enam `Package.swift` berarti enam kali pekerjaan tiap kali ada perubahan
+dependensi.
+
+Yang perlu diketahui supaya pilihan ini tidak terasa seperti kompromi:
+**batas antar target ditegakkan kompiler sama kuatnya dengan batas antar
+package.** `DesignSystem` tetap tidak bisa menyebut `Components` kalau tidak
+dideklarasikan di `Package.swift`. Yang hilang hanya versioning terpisah, dan
+untuk package lokal itu memang tidak dipakai.
+
+Fitur tetap satu package masing-masing — di situ pemisahannya bukan soal
+kompilasi, tapi soal kepemilikan dan konflik antar squad.
+
+### Yang tetap tinggal di `Byon/`
+
+`Services`, `Managers`, `Resources`, `Assets`, `Configs`, `Entitlements`,
+`R.generated`, `AppDelegate`/`SceneDelegate`, dan pemasangan `setFlowResolver`.
+Folder itu tidak akan hilang — ia menyusut sampai berisi komposisi dan hal-hal
+yang memang milik aplikasi.
+
+---
+
 ## Package yang diusulkan
 
 | Package | Isinya | Bergantung pada | Dibuat saat |
