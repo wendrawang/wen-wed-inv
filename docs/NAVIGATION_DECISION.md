@@ -152,6 +152,115 @@ evaluasi body.
 
 ---
 
+## Coordinator: dulu per layar, sekarang per flow
+
+Ini pergeseran yang paling menentukan, dan sebaiknya dipahami sebelum menulis
+baris pertama.
+
+### Kenapa dulu per layar
+
+Bukan karena itu granularitas yang dipilih, tetapi karena **tidak ada pilihan
+lain.** Coordinator dulu berbentuk `View` yang isinya `NavigationLink`, dan
+sebuah `NavigationLink` harus berdiri **di dalam** layar yang berpindah
+darinya. Jadi coordinator terpaksa duduk di tempat perpindahannya terjadi —
+satu per layar, bersarang: coordinator A memuat coordinator B memuat
+coordinator C.
+
+Bentuk itu memaksa dua hal ikut per layar padahal tidak perlu: nilai harus
+dioper lewat `Binding` berlapis, dan setiap layar harus tahu nama layar
+sesudahnya.
+
+### Coordinator lama sebenarnya mengerjakan dua hal
+
+Lihat `TransferLandingCoordinator` yang lama. Isinya:
+
+1. **Membangun layar** — `createUseCase()`, `createViewModel()`, judul,
+   analytic, penyambungan.
+2. **Memutuskan tujuan** — `startDestinationCoordinator`, `startValasJourney`,
+   sembilan `createXxx`.
+
+Hanya yang pertama yang benar-benar milik satu layar. Yang kedua milik
+**perjalanan**, dan itulah yang selama ini terpecah ke sepuluh tempat.
+
+Karena itu pembagiannya sekarang:
+
+| Pekerjaan | Dulu | Sekarang |
+|---|---|---|
+| Membangun layar | coordinator layar itu | factory layar itu — atau method privat di coordinator flow |
+| Memutuskan tujuan | tersebar di tiap coordinator | satu coordinator flow |
+
+### Satu flow itu seberapa besar
+
+Sebuah flow adalah **satu perjalanan dengan satu tujuan** yang pengguna
+selesaikan atau tinggalkan. Transfer — dari memilih penerima sampai transaksi
+selesai — satu flow, berapa pun layarnya.
+
+Kalau sebuah flow tumbuh besar, jangan memecahnya menjadi dua flow (dua modal
+bertumpuk). Pecah menjadi beberapa coordinator yang **berbagi navigator yang
+sama**:
+
+```swift
+final class TransferFlowCoordinator {
+    private let navigator: FlowNavigator
+    private var valasCoordinator: TransferValasCoordinator?   // induk memegang anak
+
+    private func startValasJourney(_ useCase: TransferLandingUseCase) {
+        let coordinator = TransferValasCoordinator(navigator: navigator)
+        valasCoordinator = coordinator
+        coordinator.start(useCase)
+    }
+}
+```
+
+Satu tumpukan, satu modal, beberapa coordinator. Perhatikan kepemilikannya:
+**hanya coordinator teratas yang memanggil `retainForFlowLifetime`**, anaknya
+dipegang induknya. Kalau anak ikut memanggilnya, ia menimpa titipan induknya dan
+induknya lepas diam-diam — `FlowNavigator` sekarang berisik kalau itu terjadi.
+
+### Menambah flow berikutnya, misalnya payment
+
+Tiga hal, dan tidak ada satu pun yang menyentuh `Sources/Navigation`:
+
+```swift
+// 1. coordinator-nya
+final class PaymentFlowCoordinator {
+    private let navigator: FlowNavigator
+
+    init(navigator: FlowNavigator) {
+        self.navigator = navigator
+        navigator.retainForFlowLifetime(self)
+    }
+
+    func createStack() -> [UIViewController] { … }
+}
+
+// 2. pendaftarannya, di file yang sama
+extension PendingFlow {
+    static func payment(billNumber: String) -> PendingFlow {
+        PendingFlow { navigator in
+            PaymentFlowCoordinator(navigator: navigator).createStack()
+        }
+    }
+}
+
+// 3. pemanggilnya, dari mana pun
+AppRouter.shared.start(.payment(billNumber: number))
+```
+
+`.mountFlowRouter()` tidak berubah. `AppRouter.swift` tidak berubah. Flow
+transfer tidak tahu payment ada, dan sebaliknya.
+
+### Selama masa transisi
+
+Dua bentuk coordinator hidup berdampingan, dan itu memang direncanakan.
+Coordinator lama berbasis `View` tetap melayani flow yang belum dipindah;
+coordinator flow berbasis class melayani yang sudah. Sebuah layar bahkan boleh
+punya keduanya sekaligus — `TransferLandingFactory` ada persis supaya
+`TransferLandingCoordinator` lama dan `TransferFlowCoordinator` baru membangun
+layar yang sama tanpa dua salinan logika.
+
+---
+
 ## `onCreateNavigationLinks` — dibuang, tapi bukan sekarang
 
 Jawaban singkatnya ya, ia hilang seluruhnya. Bersama `destinationCoordinatorName`,

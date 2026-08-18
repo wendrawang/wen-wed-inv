@@ -35,10 +35,33 @@ final class FlowNavigator {
 
     /// Menitipkan coordinator flow supaya umurnya mengikuti umur tumpukan.
     ///
-    /// Dipanggil sekali oleh coordinator saat ia dibuat. Tanpa ini, coordinator
-    /// lepas begitu `createStack` selesai — seluruh layar hanya menyebutnya
-    /// lewat `[weak self]`, jadi tidak ada satu pun yang memilikinya.
+    /// Dipanggil sekali oleh coordinator **teratas** saat ia dibuat. Tanpa ini,
+    /// coordinator lepas begitu `createStack` selesai — seluruh layar hanya
+    /// menyebutnya lewat `[weak self]`, jadi tidak ada satu pun yang memilikinya.
+    ///
+    /// ## Hanya satu, dan itu yang teratas
+    ///
+    /// Sebuah flow boleh punya beberapa coordinator — misalnya satu untuk
+    /// cabang valas, memakai navigator yang sama. Tetapi hanya yang teratas
+    /// yang menitipkan diri ke sini; coordinator anak dipegang **induknya**.
+    ///
+    /// Kalau anak ikut memanggil ini, ia menimpa titipan induknya, induknya
+    /// lepas, dan seluruh perutean yang menyebut induk berhenti bekerja — diam,
+    /// tanpa crash. Karena itu berisik di Debug.
     func retainForFlowLifetime(_ flowCoordinator: AnyObject) {
+        if let existingCoordinator = navigationController?.flowCoordinator {
+            assertionFailure(
+                """
+                \(type(of: existingCoordinator)) already owns this flow, so \
+                \(type(of: flowCoordinator)) would replace it and silently \
+                deallocate it. Only the top-level coordinator calls \
+                retainForFlowLifetime; a child coordinator is held by its \
+                parent instead.
+                """
+            )
+            return
+        }
+
         navigationController?.flowCoordinator = flowCoordinator
     }
 
