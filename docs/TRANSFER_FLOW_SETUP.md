@@ -129,6 +129,114 @@ diganti.** Sisanya tumbuh saat ada yang menuntutnya, bukan sebelumnya.
 
 ---
 
+## Template untuk flow berikutnya
+
+Yang wajib per flow adalah **satu file**, berisi dua hal: class coordinator-nya,
+dan pendaftarannya ke `PendingFlow` di bagian bawah. Tidak ada yang lain.
+
+Contoh flow payment berisi tiga layar, lengkap — ini bentuk yang sebaiknya Anda
+salin, bukan `Examples/TransferFlow/`:
+
+```swift
+import SwiftUI
+import UIKit
+
+final class PaymentFlowCoordinator {
+
+    private let navigator: FlowNavigator
+    private let billNumber: String
+
+    init(navigator: FlowNavigator, billNumber: String) {
+        self.navigator = navigator
+        self.billNumber = billNumber
+        navigator.retainForFlowLifetime(self)
+    }
+
+    func createStack() -> [UIViewController] {
+        [navigator.createController(for: createBillListScreen())]
+    }
+}
+
+// MARK: - Layar
+
+extension PaymentFlowCoordinator {
+
+    private func createBillListScreen() -> some View {
+        let useCase = PaymentBillListUseCase()
+        useCase.renewIdentifier()
+        useCase.input.billNumber = billNumber
+
+        let viewModel = PaymentBillListViewModel()
+        viewModel.navigationBarViewModel.onTapBackButton = { [weak self] in
+            self?.navigator.finish()
+        }
+        useCase.callback.onSubmissionSucceed = { [weak self, weak useCase] in
+            guard let useCase = useCase else { return }
+            self?.showConfirmation(for: useCase.output.selectedBill)
+        }
+
+        viewModel.setUseCase(useCase)
+        return Screen { PaymentBillListScreen(viewModel: viewModel) }
+    }
+
+    private func showConfirmation(for bill: Bill) {
+        navigator.push(createConfirmationScreen(bill))
+    }
+
+    private func createConfirmationScreen(_ bill: Bill) -> some View {
+        // sama bentuknya: bangun UseCase, isi input, bangun ViewModel,
+        // sambungkan tujuannya, kembalikan Screen
+    }
+}
+
+// MARK: - Pendaftaran
+
+extension PendingFlow {
+    static func payment(billNumber: String) -> PendingFlow {
+        PendingFlow { navigator in
+            PaymentFlowCoordinator(
+                navigator: navigator,
+                billNumber: billNumber
+            )
+            .createStack()
+        }
+    }
+}
+```
+
+Tidak ada enum rute. Tidak ada struct factory. Tujuan dibangun langsung sebagai
+method privat, dan perpindahannya `navigator.push`. Untuk sebagian besar flow,
+ini bentuk akhirnya — bukan bentuk sementara.
+
+### Kapan menambah yang lain
+
+| Tambahan | Baru perlu kalau |
+|---|---|
+| `enum Route` + `Step` | perlu **masuk ke tengah** flow dari luar, atau perlu `goBack(to:)` ke langkah bernama |
+| `struct ScreenFactories` | coordinator harus **berhenti tahu** cara membangun layar tujuan — layarnya milik tim lain, atau Anda mau meng-unit-test coordinator tanpa layarnya |
+| `Factory` per layar | layar itu punya **dua** pemanggil, misalnya flow baru dan coordinator lama yang masih dipakai |
+| file `+Sesuatu` | file induknya melewati batas panjang |
+
+Kalau tidak ada satu pun yang berlaku, jangan dibuat. Menambahkannya nanti
+murah; menghapus struktur yang terlanjur dipakai di banyak tempat tidak.
+
+### Kenapa `Examples/TransferFlow/` punya lima file
+
+Supaya jelas dan tidak dijadikan patokan:
+
+- `TransferRoute` ada karena transfer punya **sembilan** tujuan dan butuh masuk
+  ke tengah. Flow tiga layar tidak butuh itu.
+- `TransferScreenFactories` ada karena **saya belum pernah melihat** ketujuh
+  layar tujuannya, jadi coordinator-nya harus bisa dibangun tanpa mereka. Kalau
+  Anda menulis flow sendiri, layar-layarnya ada di tangan Anda — jadikan method
+  privat, dan file ini tidak perlu ada.
+- `+Journey` dan `TransferFlowMount` terpisah karena batas 250 baris.
+
+Jadi dari lima file itu, yang benar-benar melekat pada "sebuah flow" hanya
+coordinator dan pendaftarannya.
+
+---
+
 ## Perilaku swipe-back, supaya tidak ada kejutan
 
 Tiga situasi, dan ketiganya berbeda. Ini yang paling sering ditanyakan lebih
