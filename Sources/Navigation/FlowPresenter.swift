@@ -5,9 +5,8 @@ import UIKit
 /// satu flow yang navigasinya UIKit.
 ///
 /// **Ini satu-satunya titik temu keduanya**, dan itulah yang membuat migrasi
-/// bisa dilakukan per flow. Dashboard tidak berubah sama sekali; ia hanya
-/// menyalakan satu `Bool`. Layar di dalam flow tidak tahu-menahu soal
-/// `NavigationView`.
+/// bisa dilakukan per flow. Dashboard tidak berubah bentuk; ia hanya menyalakan
+/// satu `Bool`. Layar di dalam flow tidak tahu-menahu soal `NavigationView`.
 ///
 /// Dipakai sebagai `.background(...)` supaya tidak menempati ruang:
 ///
@@ -17,22 +16,28 @@ import UIKit
 ///         TransferFlowCoordinator(
 ///             navigator: navigator,
 ///             transferCart: transferCart
-///         ).start()
+///         )
+///         .stack(enteringAt: .landing)
 ///     }
 /// )
 /// ```
 ///
-/// Presentasinya `.fullScreen`, bukan sheet. Alasannya bukan selera: sheet di
-/// iOS 13 bisa ditutup dengan swipe ke bawah kapan saja, dan flow transaksi
-/// tidak boleh bisa ditinggalkan di tengah tanpa lewat jalur yang Anda kendalikan.
-/// `.fullScreenCover` baru ada di iOS 14, jadi di iOS 13 presentasinya memang
-/// harus lewat UIKit — dan itu justru yang kita lakukan di sini.
-struct FlowPresenter<Root: View>: UIViewControllerRepresentable {
+/// `makeStack` mengembalikan **seluruh tumpukan**, bukan hanya layar pertama.
+/// Itu yang membuat "masuk ke tengah flow" menjadi kemampuan biasa, bukan
+/// tambalan: coordinator menyusun `[landing, amount]` kalau tombol back harus
+/// membawa ke landing, atau `[amount]` saja kalau back harus keluar dari flow.
+/// `NavigationView` tidak punya padanan untuk ini.
+///
+/// Presentasinya `.fullScreen` lewat UIKit. `.fullScreenCover` baru ada di
+/// iOS 14, dan sheet iOS 13 bisa ditutup dengan swipe kapan saja — flow
+/// transaksi tidak boleh bisa ditinggalkan di tengah lewat jalur yang tidak
+/// Anda kendalikan.
+struct FlowPresenter: UIViewControllerRepresentable {
 
     @Binding var isPresented: Bool
 
-    /// Membangun layar pertama flow. Dipanggil **sekali**, saat flow dibuka.
-    let makeRoot: (FlowNavigator) -> Root
+    /// Menyusun tumpukan awal flow. Dipanggil **sekali**, saat flow dibuka.
+    let makeStack: (FlowNavigator) -> [UIViewController]
 
     func makeUIViewController(context: Context) -> UIViewController {
         UIViewController()
@@ -81,6 +86,13 @@ extension FlowPresenter {
             return
         }
 
+        let flowNavigationController = makeFlowNavigationController()
+
+        context.coordinator.flowNavigationController = flowNavigationController
+        host.present(flowNavigationController, animated: true)
+    }
+
+    private func makeFlowNavigationController() -> FlowNavigationController {
         let flowNavigationController = FlowNavigationController()
         flowNavigationController.modalPresentationStyle = .fullScreen
 
@@ -96,12 +108,11 @@ extension FlowPresenter {
         }
 
         flowNavigationController.setViewControllers(
-            [UIHostingController(rootView: makeRoot(navigator))],
+            makeStack(navigator),
             animated: false
         )
 
-        context.coordinator.flowNavigationController = flowNavigationController
-        host.present(flowNavigationController, animated: true)
+        return flowNavigationController
     }
 
     private func dismissFlowIfNeeded(context: Context) {

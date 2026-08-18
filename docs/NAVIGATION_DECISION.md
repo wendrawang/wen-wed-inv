@@ -94,9 +94,10 @@ final class TransferFlowCoordinator {
         self.transferCart = transferCart
     }
 
-    /// Layar pertama. Yang mengembalikannya adalah view, bukan efek samping,
-    /// supaya `FlowPresenter` yang memasangnya sebagai root.
-    func start() -> some View {
+    /// Layar pertama. Mengembalikan view, bukan melakukan efek samping, supaya
+    /// `FlowPresenter` yang memasangnya ke tumpukan — lihat bagian
+    /// "Persimpangan" untuk bentuk yang menerima entry point.
+    func makeLanding() -> some View {
         Screen {
             TransferLandingScreen(viewModel: makeLandingViewModel())
         }
@@ -181,7 +182,8 @@ Satu titik temu per flow, dan Dashboard tidak berubah bentuk:
         TransferFlowCoordinator(
             navigator: navigator,
             transferCart: transferCart
-        ).start()
+        )
+        .stack(enteringAt: .landing)
     }
 )
 ```
@@ -193,6 +195,168 @@ tahu keduanya ada.
 Presentasinya `.fullScreen` lewat UIKit. `.fullScreenCover` baru ada di iOS 14,
 dan sheet iOS 13 bisa ditutup dengan swipe kapan saja — flow transaksi tidak
 boleh bisa ditinggalkan di tengah lewat jalur yang tidak Anda kendalikan.
+
+---
+
+## Persimpangan: keluar-masuk antara dua dunia
+
+Ini bagian yang paling menentukan apakah migrasi bertahap bisa berjalan, karena
+di aplikasi berisi ratusan layar percabangannya tidak akan pernah rapi. Dua
+arahnya punya jawaban yang berbeda, dan yang kedua justru lebih mudah.
+
+### Aturan yang mendasari keduanya
+
+**Presentasi untuk menyeberang dunia, push untuk bergerak di dalam flow.**
+
+Sekali menyeberang per perjalanan pengguna. Kalau sebuah flow UIKit perlu flow
+UIKit lain, ia mendorong layar flow itu ke navigator-nya sendiri — bukan
+mempresentasikannya. Tumpukan modal yang bertingkat-tingkat adalah bagaimana
+migrasi bertahap berubah menjadi kekacauan yang tidak bisa dibaca siapa pun.
+
+### Arah 1 — dari tengah flow UIKit, masuk ke layar SwiftUI
+
+Tiga bentuk, urut dari yang paling dianjurkan.
+
+**a. Layarnya daun — dorong layarnya saja.** Ini yang paling sering, dan paling
+murah. Yang Anda butuhkan dari dunia SwiftUI hanyalah **layar beserta ViewModel
+dan UseCase-nya**; coordinator-nya tidak dibutuhkan sama sekali, karena
+coordinator itu semata mesin navigasi.
+
+```swift
+private func showRecipientDetail(_ contact: BankContact) {
+    navigator.push(
+        Screen {
+            RecipientDetailScreen(viewModel: makeRecipientDetailViewModel(contact))
+        }
+    )
+}
+```
+
+Layarnya tidak diubah. Coordinator SwiftUI-nya tetap berdiri untuk flow lain
+yang masih memakainya.
+
+Yang perlu dijaga: pembangunan ViewModel-nya sekarang ada di dua tempat —
+coordinator lama dan coordinator baru. Jangan disalin. Keluarkan menjadi satu
+factory yang dipanggil keduanya. Langkah itu bagus dikerjakan lebih dulu,
+sebelum migrasi apa pun, karena ia berguna di kedua dunia.
+
+**b. Rangkaiannya utuh dan belum bisa diurai — dorong sebagai pulau.**
+`navigator.pushIsland(...)` membungkusnya dalam `NavigationView` sendiri, dan
+seluruh rangkaian itu menjadi **satu** entri di tumpukan UIKit.
+
+```swift
+navigator.pushIsland(
+    ExistingSubFlowCoordinator(
+        selectionCoordinatorName: .constant(ExistingSubFlowCoordinator.named),
+        sourceCoordinatorName: .constant(nil),
+        transferCart: transferCart
+    )
+)
+```
+
+Di dalam pulau, `NavigationLink` bekerja seperti biasa. Keluar dari pulau
+berarti keluar seluruhnya — tidak ada cara mundur ke langkah ke-2 dari luar.
+Karena itu **pulau harus kecil.** Kalau sebuah rangkaian perlu dimasuki kembali
+di tengah, ia bukan pulau; ia flow tersendiri dan harus dipindah.
+
+Satu detail yang sudah ditangani `FlowNavigationController`: gestur swipe-back
+UIKit dimatikan selama pulau di atas, karena `NavigationView` di dalamnya punya
+gesturnya sendiri dan dua-duanya aktif berarti satu swipe memundurkan dua
+tingkat.
+
+**c. Pulau perlu mengembalikan hasil.** Berikan closure ke coordinator pulaunya,
+persis seperti closure lain:
+
+```swift
+navigator.pushIsland(
+    BankSelectionCoordinator(transferCart: transferCart) { [weak self] bank in
+        self?.navigator.pop()
+        self?.continueAfterBankSelection(bank)
+    }
+)
+```
+
+Pulau tidak perlu tahu ia sedang berada di dalam flow UIKit. Ia hanya melapor.
+
+### Arah 2 — dari tengah flow SwiftUI, masuk ke tengah flow transfer
+
+Ini yang justru **lebih mudah**, dan `NavigationView` tidak punya padanannya
+sama sekali.
+
+`FlowPresenter` tidak meminta layar pertama; ia meminta **seluruh tumpukan**.
+Jadi masuk ke tengah bukan urusan mendorong beberapa layar berturut-turut,
+melainkan menyatakan tumpukan akhirnya:
+
+```swift
+extension TransferFlowCoordinator {
+    enum Entry {
+        case landing
+        case transactionAmount(RecipientAccount)
+        case summary(TransferDraft)
+    }
+
+    func stack(enteringAt entry: Entry) -> [UIViewController] {
+        switch entry {
+        case .landing:
+            return [navigator.controller(for: makeLanding())]
+
+        // Back membawa ke landing — pengguna bisa mengganti penerima.
+        case .transactionAmount(let recipient):
+            return [
+                navigator.controller(for: makeLanding()),
+                navigator.controller(for: makeTransactionAmount(recipient))
+            ]
+
+        // Back keluar dari flow — ringkasan tidak boleh diedit mundur.
+        case .summary(let draft):
+            return [navigator.controller(for: makeSummary(draft))]
+        }
+    }
+}
+```
+
+Layar SwiftUI mana pun cukup menyalakan `Bool` dan menyebut entry-nya. Ia tidak
+perlu tahu apa pun tentang isi flow transfer.
+
+Perhatikan bahwa **coordinator yang menentukan tombol back membawa ke mana**,
+dan itu keputusan produk, bukan keputusan teknis. Di `NavigationView` keputusan
+itu tidak bisa dinyatakan sama sekali — tumpukannya adalah apa pun yang
+kebetulan terbentuk dari rangkaian tautan yang dilalui.
+
+### Arah 3 — kembali ke dunia SwiftUI setelah flow selesai
+
+Jangan biarkan flow menutup dirinya sendiri lalu berharap layar pemanggil
+menebak apa yang terjadi. Pisahkan dua hal: **penutupan** dan **hasil**.
+
+`navigator.finish()` mengurus penutupannya, lewat `isPresented`. Hasilnya
+dilaporkan closure yang Anda serahkan ke coordinator saat membuatnya:
+
+```swift
+FlowPresenter(isPresented: $isTransferFlowPresented) { navigator in
+    TransferFlowCoordinator(
+        navigator: navigator,
+        transferCart: transferCart,
+        onComplete: { receipt in
+            transferReceipt = receipt      // @State di layar SwiftUI
+            navigator.finish()
+        }
+    )
+    .stack(enteringAt: .landing)
+}
+```
+
+Arah datanya tetap satu arah, dan layar SwiftUI-lah yang memutuskan apa yang
+terjadi setelahnya — pindah tab, menampilkan struk, atau sekadar menutup.
+
+### Yang sebaiknya tidak dilakukan
+
+- **Mempresentasikan flow dari dalam flow.** Kalau transfer perlu masuk ke flow
+  lain, dorong layarnya, atau jadikan pulau. Modal di atas modal membuat
+  `dismiss` menjadi tebakan.
+- **Pulau yang besar.** Begitu Anda ingin "mundur ke langkah ke-3 di dalam
+  pulau", pulau itu sudah harus jadi flow.
+- **Menyalin pembangunan ViewModel** dari coordinator lama ke coordinator baru.
+  Keluarkan menjadi factory bersama lebih dulu.
 
 ---
 

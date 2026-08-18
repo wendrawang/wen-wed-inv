@@ -1,4 +1,17 @@
+import SwiftUI
 import UIKit
+
+/// Menandai controller yang isinya sub-flow SwiftUI dengan `NavigationView`
+/// sendiri di dalamnya.
+///
+/// Penandanya dibutuhkan karena dua gestur swipe-back tidak bisa hidup
+/// bersamaan: milik `UINavigationController` di luar, dan milik `NavigationView`
+/// di dalam. Saat pulau sedang di atas, yang luar dimatikan.
+protocol FlowIslandHosting: AnyObject {}
+
+final class FlowIslandHostingController<
+    Content: View
+>: UIHostingController<Content>, FlowIslandHosting {}
 
 /// `UINavigationController` untuk satu flow yang layarnya SwiftUI.
 ///
@@ -26,6 +39,13 @@ extension FlowNavigationController: UIGestureRecognizerDelegate {
     func gestureRecognizerShouldBegin(
         _ gestureRecognizer: UIGestureRecognizer
     ) -> Bool {
-        viewControllers.count > 1
+        // Saat pulau SwiftUI sedang di atas, `NavigationView` di dalamnya yang
+        // menangani swipe-back. Membiarkan keduanya aktif membuat satu swipe
+        // memundurkan dua tingkat sekaligus.
+        if topViewController is FlowIslandHosting {
+            return false
+        }
+
+        return viewControllers.count > 1
     }
 }

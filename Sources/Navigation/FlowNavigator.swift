@@ -40,6 +40,47 @@ final class FlowNavigator {
         )
     }
 
+    /// Mendorong sub-flow SwiftUI yang **masih memakai `NavigationView`**.
+    ///
+    /// Dipakai saat flow ini di tengah jalan perlu masuk ke rangkaian layar yang
+    /// belum dipindah. Seluruh rangkaian itu menjadi **satu** entri di tumpukan
+    /// UIKit — sebuah pulau. Di dalam pulau, navigasinya jalan seperti biasa
+    /// dengan `NavigationLink`; keluar dari pulau berarti keluar seluruhnya.
+    ///
+    /// Karena itu pulau harus kecil. Kalau sebuah rangkaian perlu dimasuki
+    /// kembali di tengah, ia bukan pulau — ia flow tersendiri.
+    ///
+    /// `StackNavigationViewStyle` dipasang supaya di iPad tidak berubah menjadi
+    /// split view, dan `FlowIslandHostingController` menandai controller-nya
+    /// supaya gestur swipe-back milik UIKit tidak bertabrakan dengan gestur
+    /// milik `NavigationView` di dalamnya.
+    func pushIsland<Content: View>(_ content: Content, animated: Bool = true) {
+        let island = NavigationView {
+            content
+        }
+        .navigationViewStyle(StackNavigationViewStyle())
+
+        navigationController?.pushViewController(
+            FlowIslandHostingController(rootView: island),
+            animated: animated
+        )
+    }
+
+    /// Menyusun seluruh tumpukan sekaligus.
+    ///
+    /// Ini yang membuat "masuk ke tengah flow" mungkin: bukan dengan
+    /// mendorong beberapa layar berturut-turut, tetapi dengan menyatakan
+    /// tumpukan akhirnya. Coordinator yang menentukan tombol back-nya membawa ke
+    /// mana — dengan menyertakan layar sebelumnya atau tidak.
+    func setStack(_ controllers: [UIViewController], animated: Bool = false) {
+        navigationController?.setViewControllers(controllers, animated: animated)
+    }
+
+    /// Membungkus satu layar menjadi controller, untuk disusun lewat `setStack`.
+    func controller<Content: View>(for content: Content) -> UIViewController {
+        UIHostingController(rootView: content)
+    }
+
     func pop(animated: Bool = true) {
         navigationController?.popViewController(animated: animated)
     }
